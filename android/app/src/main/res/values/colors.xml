@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the sky at the top of the landing page photo so launch blends straight into it -->
+    <color name="splash_background">#F2E1D6</color>
+    <color name="ic_launcher_background">#E8364C</color>
+</resources>
