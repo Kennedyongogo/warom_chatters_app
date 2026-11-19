@@ -50,7 +50,7 @@ class _BasicsStepPageState extends State<BasicsStepPage> {
           textCapitalization: TextCapitalization.words,
           maxLength: 30,
           onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'First name', helperText: 'This is how you\'ll appear on Mtaani'),
+          decoration: const InputDecoration(labelText: 'First name', helperText: 'This is how you\'ll appear on Warom'),
         ),
         const SizedBox(height: 18),
         const FieldLabel('I am a'),
@@ -160,7 +160,7 @@ class _AboutStepPageState extends State<AboutStepPage> {
           ? () => submitStep(
                 context,
                 () => MtaaniApi.instance.saveAbout(bio: _bio.text, interests: _interests, work: _work.text),
-                OnboardingStep.preferences,
+                OnboardingStep.location,
                 setBusy: (b) => setState(() => _busy = b),
               )
           : null,
@@ -179,49 +179,6 @@ class _AboutStepPageState extends State<AboutStepPage> {
         const SizedBox(height: 6),
         const FieldLabel('Work', hint: 'Optional'),
         TextField(controller: _work, decoration: const InputDecoration(hintText: 'What do you do?')),
-      ],
-    );
-  }
-}
-
-class PreferencesStepPage extends StatefulWidget {
-  const PreferencesStepPage({super.key});
-
-  @override
-  State<PreferencesStepPage> createState() => _PreferencesStepPageState();
-}
-
-class _PreferencesStepPageState extends State<PreferencesStepPage> {
-  final _me = MtaaniApi.instance.me!;
-  late RangeValues _ages = RangeValues(_me.minAge.toDouble(), _me.maxAge.toDouble());
-  late double _distance = _me.maxDistanceKm.toDouble();
-  bool _busy = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return OnboardingScaffold(
-      step: OnboardingStep.preferences,
-      title: 'Who would you like to meet?',
-      subtitle: 'You\'ll only see people who fit these, and whose own preferences include you.',
-      busy: _busy,
-      primaryLabel: 'Continue',
-      onPrimary: () => submitStep(
-        context,
-        () => MtaaniApi.instance.savePreferences(
-          minAge: _ages.start.round(),
-          maxAge: _ages.end.round(),
-          maxDistanceKm: _distance.round(),
-        ),
-        OnboardingStep.location,
-        setBusy: (b) => setState(() => _busy = b),
-      ),
-      children: [
-        DiscoveryPreferenceFields(
-          ageRange: _ages,
-          distanceKm: _distance,
-          onAgeRange: (v) => setState(() => _ages = v),
-          onDistance: (v) => setState(() => _distance = v),
-        ),
       ],
     );
   }
@@ -253,7 +210,7 @@ class _LocationStepPageState extends State<LocationStepPage> {
       barrierDismissible: false,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.location_on_rounded),
-        title: const Text('Allow Mtaani to access this device\'s approximate location?'),
+        title: const Text('Allow Warom to access this device\'s approximate location?'),
         content: const Text('Simulated system prompt', style: TextStyle(color: MtaaniColors.muted, fontSize: 12.5)),
         actionsAlignment: MainAxisAlignment.center,
         actionsOverflowDirection: VerticalDirection.down,
@@ -279,10 +236,10 @@ class _LocationStepPageState extends State<LocationStepPage> {
   Widget build(BuildContext context) {
     return OnboardingScaffold(
       step: OnboardingStep.location,
-      title: _manual ? 'Where are you based?' : 'Find people near you',
+      title: _manual ? 'Where are you based?' : 'Find people around you',
       subtitle: _manual
           ? 'Choose the area you spend most of your time in. You can change it any time.'
-          : 'Mtaani uses your approximate location to show people nearby.',
+          : 'Warom uses your approximate location to show people nearby — wherever you are.',
       busy: _busy,
       primaryLabel: _manual ? 'Continue' : 'Allow location',
       onPrimary: _manual ? () => _save(_area, fromDevice: false) : _requestPermission,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../legal/warom_legal.dart';
 import '../../services/mtaani_api.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
+import '../legal/policy_page.dart';
 
 class SafetyPage extends StatelessWidget {
   const SafetyPage({super.key});
@@ -52,7 +54,7 @@ class SafetyPage extends StatelessWidget {
               const SizedBox(height: 24),
               const _Title('Dating safely'),
               for (final tip in const [
-                (Icons.chat_outlined, 'Keep conversations on Mtaani until you trust someone.'),
+                (Icons.chat_outlined, 'Keep conversations on Warom until you trust someone.'),
                 (Icons.storefront_outlined, 'Meet first in a busy public place, like a café or mall.'),
                 (Icons.share_location_outlined, 'Tell a friend where you\'re going and who you\'re meeting.'),
                 (Icons.payments_outlined, 'Never send money or M-Pesa to someone you haven\'t met.'),
@@ -69,6 +71,22 @@ class SafetyPage extends StatelessWidget {
                     ],
                   ),
                 ),
+              const SizedBox(height: 24),
+              const _Title('Legal'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined, color: MtaaniColors.coralDeep),
+                title: const Text('Terms & Conditions', style: TextStyle(fontWeight: FontWeight.w700)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: MtaaniColors.muted),
+                onTap: () => PolicyPage.open(context, WaromLegal.terms.slug),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined, color: MtaaniColors.coralDeep),
+                title: const Text('Privacy Policy', style: TextStyle(fontWeight: FontWeight.w700)),
+                trailing: const Icon(Icons.chevron_right_rounded, color: MtaaniColors.muted),
+                onTap: () => PolicyPage.open(context, WaromLegal.privacy.slug),
+              ),
             ],
           );
         },

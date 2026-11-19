@@ -17,7 +17,6 @@ Widget pageForStep(OnboardingStep step) => switch (step) {
       OnboardingStep.basics => const BasicsStepPage(),
       OnboardingStep.photos => const PhotosStepPage(),
       OnboardingStep.about => const AboutStepPage(),
-      OnboardingStep.preferences => const PreferencesStepPage(),
       OnboardingStep.location => const LocationStepPage(),
       OnboardingStep.activate => const ActivationPage(),
       OnboardingStep.done => const HomeShell(),
@@ -155,24 +154,3 @@ class OnboardingScaffold extends StatelessWidget {
   }
 }
 
-class DemoHint extends StatelessWidget {
-  final String text;
-
-  const DemoHint(this.text, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 18),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: MtaaniColors.blush, borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          const Icon(Icons.info_outline_rounded, color: MtaaniColors.coralDeep, size: 20),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 13.5, color: MtaaniColors.ink, height: 1.35))),
-        ],
-      ),
-    );
-  }
-}

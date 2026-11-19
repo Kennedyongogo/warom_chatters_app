@@ -1,11 +1,11 @@
 {
-    "name": "edams_mobile",
-    "short_name": "edams_mobile",
+    "name": "Warom chatters",
+    "short_name": "Warom chatters",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1B2B",
+    "theme_color": "#0B1B2B",
+    "description": "Warom chatters — connect, chat, and earn.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

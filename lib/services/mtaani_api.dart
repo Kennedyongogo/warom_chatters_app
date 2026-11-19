@@ -8,6 +8,7 @@ import '../models/account.dart';
 import '../models/profile.dart';
 import '../models/social.dart';
 import 'seed_data.dart';
+import 'warom_auth.dart';
 
 class _PendingCode {
   final String code;
@@ -34,11 +35,8 @@ class MtaaniApi extends ChangeNotifier {
 
   /// Every code is this value in the prototype; production sends a random code by SMS or email.
   static const demoCode = '123456';
-  static const demoPhone = '+254712345678';
   static const termsVersion = '2026-10';
   static const _codeLifetime = Duration(minutes: 5);
-  static const _resendCooldown = Duration(seconds: 30);
-  static const _maxCodesPer10Min = 3;
   static const _maxCodeAttempts = 5;
 
   final _random = math.Random();
@@ -51,8 +49,6 @@ class MtaaniApi extends ChangeNotifier {
   late Map<String, List<Message>> _messages;
   late Map<String, int> _replyCursor;
   late Map<String, Account> _accounts;
-  late Map<String, _PendingCode> _phoneCodes;
-  late Map<String, List<DateTime>> _codeRequests;
   late Map<String, (String email, _PendingCode code)> _emailCodes;
   late Set<String> _typing;
   late int _reports;
@@ -85,29 +81,29 @@ class MtaaniApi extends ChangeNotifier {
     _messages = {};
     _replyCursor = {};
     _accounts = {};
-    _phoneCodes = {};
-    _codeRequests = {};
     _emailCodes = {};
     _typing = {};
     _reports = 0;
     _seq = 0;
     _sessionUserId = null;
     _simulateNetworkFailure = false;
+    WaromAuth.instance.clear();
     _seedDemoMember();
     _discoveryVersion++;
     notifyListeners();
   }
 
-  /// Juma has a finished account on [demoPhone] so the pitch can jump straight to Discover.
+  /// Demo chatter already through onboarding (local seed only).
   void _seedDemoMember() {
     final juma = buildDemoMember();
     _profiles[juma.id] = juma;
     _accounts[juma.id] = Account(
       id: juma.id,
-      provider: AuthProvider.phone,
+      provider: AuthProvider.email,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
-      phone: demoPhone,
-      phoneVerified: true,
+      email: 'demo.chatter@warom.app',
+      emailVerified: true,
+      phoneVerified: false,
       termsVersion: termsVersion,
       termsAcceptedAt: DateTime.now().subtract(const Duration(days: 30)),
       step: OnboardingStep.done,
@@ -125,59 +121,104 @@ class MtaaniApi extends ChangeNotifier {
 
   Account? get account => _sessionUserId == null ? null : _accounts[_sessionUserId];
 
-  void logOut() {
+  Future<void> logOut() async {
     _sessionUserId = null;
+    await WaromAuth.instance.clear();
     notifyListeners();
   }
 
-  /// Returns the number in E.164 form, or null when it isn't a valid mobile number for the country.
-  static String? normalizePhone(Country country, String input) {
-    var digits = input.replaceAll(RegExp(r'\D'), '');
-    final code = country.dialCode.substring(1);
-    if (digits.startsWith(code)) digits = digits.substring(code.length);
-    if (digits.startsWith('0')) digits = digits.substring(1);
-    final valid = country.dialCode == '+254' ? RegExp(r'^[17]\d{8}$') : RegExp(r'^\d{9}$');
-    return valid.hasMatch(digits) ? '${country.dialCode}$digits' : null;
-  }
+  /// Bridges a WAROM API session into the local in-app session/onboarding flow.
+  AuthOutcome adoptRemoteUser({
+    required Map<String, dynamic> user,
+    required AuthProvider provider,
+    required bool isNew,
+  }) {
+    final id = '${user['id']}';
+    final username = '${user['username'] ?? ''}'.trim();
+    final email = user['email'] as String?;
+    final completed = user['onboarding_completed'] == true;
+    final dobRaw = user['date_of_birth'] as String?;
+    final genderRaw = '${user['gender'] ?? ''}'.toLowerCase();
+    final hobbies = (user['hobbies'] is List)
+        ? (user['hobbies'] as List).map((e) => '$e').where((e) => e.isNotEmpty).toList()
+        : <String>[];
+    final bio = '${user['bio'] ?? ''}';
+    final city = '${user['city'] ?? ''}';
+    final country = '${user['country'] ?? ''}';
+    final picture = user['profile_picture'] as String?;
+    final covers = (user['cover_photos'] is List)
+        ? (user['cover_photos'] as List).map((e) => '$e').where((e) => e.isNotEmpty).toList()
+        : <String>[];
+    final photos = (user['photos'] is List)
+        ? (user['photos'] as List).map((e) => '$e').where((e) => e.isNotEmpty).toList()
+        : <String>[];
 
-  Future<OtpTicket> requestPhoneCode(String phone) async {
-    await _roundTrip();
-    final now = DateTime.now();
-    final recent = (_codeRequests[phone] ?? [])..removeWhere((t) => now.difference(t) > const Duration(minutes: 10));
-    if (recent.isNotEmpty && now.difference(recent.last) < _resendCooldown) {
-      final wait = _resendCooldown - now.difference(recent.last);
-      throw ApiException('Please wait ${wait.inSeconds + 1}s before requesting another code.');
+    DateTime birthDate = DateTime(DateTime.now().year - 25);
+    if (dobRaw != null && dobRaw.isNotEmpty) {
+      birthDate = DateTime.tryParse(dobRaw) ?? birthDate;
     }
-    if (recent.length >= _maxCodesPer10Min) {
-      throw const ApiException('Too many codes requested for this number. Try again in 10 minutes.');
-    }
-    recent.add(now);
-    _codeRequests[phone] = recent;
-    _phoneCodes[phone] = _PendingCode(demoCode, now.add(_codeLifetime));
-    return OtpTicket(phone, now.add(_codeLifetime), now.add(_resendCooldown));
-  }
 
-  /// Verifies the SMS code, then logs into the account on that number or, when allowed, creates one.
-  Future<AuthOutcome> verifyPhoneCode(String phone, String code, {required bool createIfMissing}) async {
-    await _roundTrip();
-    _checkCode(_phoneCodes[phone], code);
-    final existing = _accounts.values.where((a) => a.phone == phone).firstOrNull;
-    if (existing == null && !createIfMissing) {
-      throw const ApiException('There\'s no Mtaani account on this number yet.', code: ApiException.noAccount);
+    Gender gender = Gender.man;
+    if (genderRaw.contains('woman') || genderRaw == 'female' || genderRaw == 'f') {
+      gender = Gender.woman;
     }
-    _phoneCodes.remove(phone);
-    if (existing != null) return _startSession(existing, isNew: false);
-    final account = _newAccount(AuthProvider.phone)
-      ..phone = phone
-      ..phoneVerified = true;
-    return _startSession(account, isNew: true);
+
+    final areaName = city.isNotEmpty
+        ? (country.isNotEmpty ? '$city, $country' : city)
+        : Area.all.first.name;
+    Area area = Area(areaName, Area.all.first.lat, Area.all.first.lng);
+    if (city.isNotEmpty) {
+      for (final candidate in Area.all) {
+        if (candidate.name.toLowerCase().contains(city.toLowerCase())) {
+          area = candidate;
+          break;
+        }
+      }
+    }
+
+    final imageList = <String>[
+      if (picture != null && picture.isNotEmpty) picture,
+      ...photos,
+      ...covers,
+    ];
+
+    _profiles[id] = Profile(
+      id: id,
+      name: username.isNotEmpty ? username : (email?.split('@').first ?? 'Chatter'),
+      birthDate: birthDate,
+      gender: gender,
+      showMe: ShowMe.everyone,
+      bio: bio,
+      interests: hobbies,
+      photos: imageList,
+      area: area,
+      discoverable: completed,
+      active: true,
+    );
+
+    final account = Account(
+      id: id,
+      provider: provider,
+      createdAt: DateTime.now(),
+      email: email,
+      emailVerified: email != null && email.isNotEmpty,
+      phoneVerified: false,
+      termsVersion: completed ? termsVersion : null,
+      termsAcceptedAt: completed ? DateTime.now() : null,
+      step: completed ? OnboardingStep.done : OnboardingStep.terms,
+      status: completed ? AccountStatus.active : AccountStatus.onboarding,
+    );
+    _accounts[id] = account;
+    _sessionUserId = id;
+    notifyListeners();
+    return AuthOutcome(account, isNew);
   }
 
   /// Simulates the Google / Apple consent sheet; the provider vouches for the email address.
   Future<AuthOutcome> continueWithProvider(AuthProvider provider) async {
     await _roundTrip();
     await Future<void>.delayed(const Duration(milliseconds: 600));
-    final email = 'demo.${provider.name}@mtaani.app';
+    final email = 'demo.${provider.name}@warom.app';
     final existing = _accounts.values.where((a) => a.email == email).firstOrNull;
     if (existing != null) return _startSession(existing, isNew: false);
     final account = _newAccount(provider)
@@ -270,7 +311,7 @@ class MtaaniApi extends ChangeNotifier {
     if (profile.age < 18) {
       account.status = AccountStatus.ineligible;
       notifyListeners();
-      throw const ApiException('Mtaani is only for adults aged 18 and over.', code: ApiException.ineligible);
+      throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
     }
     _advance(account, OnboardingStep.basics);
   }
@@ -312,17 +353,6 @@ class MtaaniApi extends ChangeNotifier {
       ..bio = bio.trim()
       ..interests = [...interests]
       ..work = (work?.trim().isEmpty ?? true) ? null : work!.trim();
-    _advance(account, OnboardingStep.preferences);
-  }
-
-  Future<void> savePreferences({required int minAge, required int maxAge, required int maxDistanceKm}) async {
-    await _roundTrip();
-    final account = _requireOnboarding(OnboardingStep.preferences);
-    if (minAge < 18 || minAge > maxAge) throw const ApiException('Check your age range.');
-    _profiles[account.id]!
-      ..minAge = minAge
-      ..maxAge = maxAge
-      ..maxDistanceKm = maxDistanceKm;
     _advance(account, OnboardingStep.location);
   }
 
@@ -338,9 +368,11 @@ class MtaaniApi extends ChangeNotifier {
     await _roundTrip();
     final account = _requireOnboarding(OnboardingStep.activate);
     final profile = _profiles[account.id]!;
-    if (!account.phoneVerified && !account.emailVerified) throw const ApiException('Verify your phone number first.');
+    if (!account.emailVerified && account.provider == AuthProvider.email) {
+      throw const ApiException('Verify your email first.');
+    }
     if (account.termsVersion != termsVersion) throw const ApiException('Please accept the latest terms.');
-    if (profile.age < 18) throw const ApiException('Mtaani is only for adults aged 18 and over.', code: ApiException.ineligible);
+    if (profile.age < 18) throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
     if (profile.name.isEmpty || profile.photos.isEmpty) throw const ApiException('Your profile is missing details.');
     _validateAbout(profile.bio, profile.interests);
     profile.discoverable = true;
@@ -356,7 +388,7 @@ class MtaaniApi extends ChangeNotifier {
   Account _requireOnboarding(OnboardingStep step) {
     final account = this.account ?? (throw const ApiException('Please log in again.'));
     if (account.status == AccountStatus.ineligible) {
-      throw const ApiException('Mtaani is only for adults aged 18 and over.', code: ApiException.ineligible);
+      throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
     }
     if (account.step.isBefore(step)) throw const ApiException('Please complete the previous step first.');
     return account;
@@ -386,7 +418,7 @@ class MtaaniApi extends ChangeNotifier {
 
   void _validateProfile(Profile p) {
     if (p.name.trim().isEmpty) throw const ApiException('Please add your name.');
-    if (p.age < 18) throw const ApiException('You must be 18 or older to use Mtaani.');
+    if (p.age < 18) throw const ApiException('You must be 18 or older to use Warom.');
     if (p.photos.isEmpty) throw const ApiException('Add at least one photo.');
     if (p.minAge < 18 || p.minAge > p.maxAge) throw const ApiException('Check your age range.');
   }

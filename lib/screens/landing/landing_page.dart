@@ -43,14 +43,14 @@ class _LandingPageState extends State<LandingPage> {
             const Positioned.fill(
               child: Image(image: LandingPage.background, fit: BoxFit.cover, alignment: Alignment(0, -0.2)),
             ),
-            // Cream haze at the top keeps the dark wordmark readable over the sky.
+            // Soft rose haze at the top keeps the Warom wordmark readable over the sky.
             const Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xE6F2E1D6), Color(0x00F2E1D6)],
+                    colors: [Color(0xE6F5D6CE), Color(0x00F5D6CE)],
                     stops: [0, 0.3],
                   ),
                 ),
@@ -92,14 +92,14 @@ class _LandingPageState extends State<LandingPage> {
                                 letterSpacing: -0.4,
                               ),
                               children: [
-                                TextSpan(text: 'Find someone special\nnear you in '),
-                                TextSpan(text: 'Kenya', style: TextStyle(color: _coral)),
+                                TextSpan(text: 'Find someone special\nanywhere in the '),
+                                TextSpan(text: 'world', style: TextStyle(color: _coral)),
                               ],
                             ),
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Meet amazing people, make real connections,\nand see where it leads.',
+                            'Chat, connect, and earn with people\nacross the globe on Warom.',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 15, height: 1.45),
                           ),
@@ -163,25 +163,31 @@ class _Brand extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            HeartMark(size: 58),
-            SizedBox(width: 10),
-            Text(
-              'Mtaani',
-              style: TextStyle(
-                color: _LandingPageState._ink,
-                fontSize: 42,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.6,
-              ),
-            ),
-          ],
+        ClipRRect(
+          borderRadius: BorderRadius.all(Radius.circular(22)),
+          child: Image(
+            image: AssetImage('assets/images/warom_mark.png'),
+            width: 88,
+            height: 88,
+            fit: BoxFit.cover,
+          ),
         ),
-        SizedBox(height: 6),
+        SizedBox(height: 14),
         Text(
-          'Real People. Meaningful Connections.',
+          'chatters',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _LandingPageState._ink,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.4,
+            height: 1,
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          'Connect. Chat. Earn. Belong.',
+          textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFF3B3540), fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ],

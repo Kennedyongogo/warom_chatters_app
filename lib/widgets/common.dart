@@ -76,7 +76,7 @@ class PillButton extends StatelessWidget {
   }
 }
 
-/// Two-tone heart used as the in-app Mtaani mark.
+/// Two-tone heart used as the in-app Warom mark.
 class HeartMark extends StatelessWidget {
   final double size;
 
@@ -106,7 +106,7 @@ class BrandTitle extends StatelessWidget {
         HeartMark(size: 28),
         SizedBox(width: 6),
         Text(
-          'Mtaani',
+          'Warom',
           style: TextStyle(color: MtaaniColors.ink, fontSize: 24, fontWeight: FontWeight.w800, letterSpacing: -0.4),
         ),
       ],

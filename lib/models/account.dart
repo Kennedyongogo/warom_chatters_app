@@ -6,7 +6,6 @@ enum OnboardingStep {
   basics,
   photos,
   about,
-  preferences,
   location,
   activate,
   done;
@@ -17,7 +16,7 @@ enum OnboardingStep {
 enum AccountStatus { onboarding, active, ineligible }
 
 enum AuthProvider {
-  phone('phone number'),
+  email('Email'),
   google('Google'),
   apple('Apple');
 
@@ -57,32 +56,9 @@ class Account {
   });
 }
 
-class OtpTicket {
-  final String phone;
-  final DateTime expiresAt;
-  final DateTime resendAvailableAt;
-
-  const OtpTicket(this.phone, this.expiresAt, this.resendAvailableAt);
-}
-
 class AuthOutcome {
   final Account account;
   final bool isNewAccount;
 
   const AuthOutcome(this.account, this.isNewAccount);
-}
-
-class Country {
-  final String name;
-  final String dialCode;
-  final String flag;
-
-  const Country(this.name, this.dialCode, this.flag);
-
-  static const supported = [
-    Country('Kenya', '+254', '🇰🇪'),
-    Country('Tanzania', '+255', '🇹🇿'),
-    Country('Uganda', '+256', '🇺🇬'),
-    Country('Rwanda', '+250', '🇷🇼'),
-  ];
 }

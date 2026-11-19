@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../models/account.dart';
 import '../../models/social.dart';
 import '../../services/mtaani_api.dart';
 import '../../theme.dart';
@@ -24,7 +23,7 @@ class _ActivationPageState extends State<ActivationPage> {
   List<String> get _checks {
     final account = MtaaniApi.instance.account!;
     return [
-      account.provider == AuthProvider.phone ? 'Phone number verified' : 'Signed in with ${account.provider.label}',
+      'Signed in with ${account.provider.label}',
       'Terms accepted (v${account.termsVersion ?? MtaaniApi.termsVersion})',
       'Age confirmed 18+',
       'Photos reviewed',

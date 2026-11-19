@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../legal/warom_legal.dart';
 import '../../models/account.dart';
 import '../../services/mtaani_api.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
 import '../landing/landing_page.dart';
+import '../legal/policy_page.dart';
 import 'onboarding_flow.dart';
 
 class EmailStepPage extends StatefulWidget {
@@ -94,7 +96,6 @@ class _EmailStepPageState extends State<EmailStepPage> {
               ),
             ],
           ),
-          const DemoHint('Demo: no email is sent. The code is ${MtaaniApi.demoCode}.'),
         ],
       ],
     );
@@ -114,41 +115,17 @@ class _TermsStepPageState extends State<TermsStepPage> {
   bool _busy = false;
 
   static const _documents = [
-    (
-      Icons.description_outlined,
-      'Terms of Use',
-      [
-        'You must be 18 or older to use Mtaani.',
-        'One account per person, with your real name, age and recent photos.',
-        'We may suspend accounts that break these terms or our community rules.',
-      ],
-    ),
-    (
-      Icons.privacy_tip_outlined,
-      'Privacy Policy',
-      [
-        'Your phone number and email are never shown to other members.',
-        'Others only see an approximate distance, never your exact location.',
-        'You can download or delete your data at any time.',
-      ],
-    ),
-    (
-      Icons.diversity_1_outlined,
-      'Community Guidelines',
-      [
-        'Be respectful. No harassment, hate speech or explicit content.',
-        'No scams, selling or asking for money.',
-        'Report anyone who makes you feel unsafe.',
-      ],
-    ),
+    (Icons.description_outlined, WaromLegal.terms),
+    (Icons.privacy_tip_outlined, WaromLegal.privacy),
   ];
 
   @override
   Widget build(BuildContext context) {
     return OnboardingScaffold(
       step: OnboardingStep.terms,
-      title: 'Our promise to each other',
-      subtitle: 'Please read and accept these to continue. We record the version you accept and when.',
+      title: 'Terms & Privacy',
+      subtitle:
+          'Please review WAROM’s Terms & Conditions and Privacy Policy from the public portal before continuing.',
       busy: _busy,
       primaryLabel: 'Agree and continue',
       onPrimary: _agreed
@@ -160,28 +137,59 @@ class _TermsStepPageState extends State<TermsStepPage> {
               )
           : null,
       children: [
-        for (final doc in _documents)
-          Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
+        for (final entry in _documents)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: MtaaniColors.line),
-            ),
-            child: Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                leading: Icon(doc.$1, color: MtaaniColors.coralDeep),
-                title: Text(doc.$2, style: const TextStyle(fontWeight: FontWeight.w700)),
-                childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (final line in doc.$3)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Text('•  $line', style: const TextStyle(height: 1.4)),
-                    ),
-                ],
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => PolicyPage.open(context, entry.$2.slug),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: MtaaniColors.line),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(entry.$1, color: MtaaniColors.coralDeep),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.$2.title,
+                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              entry.$2.summary,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                height: 1.4,
+                                color: MtaaniColors.muted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Read full document',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: MtaaniColors.coralDeep,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: MtaaniColors.muted),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -192,8 +200,10 @@ class _TermsStepPageState extends State<TermsStepPage> {
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           activeColor: MtaaniColors.coralDeep,
-          title: const Text('I agree to the Terms of Use, Privacy Policy and Community Guidelines',
-              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
+          title: const Text(
+            'I agree to the Terms & Conditions and Privacy Policy',
+            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          ),
           subtitle: const Text('Version ${MtaaniApi.termsVersion} · required'),
         ),
         SwitchListTile(
@@ -201,7 +211,7 @@ class _TermsStepPageState extends State<TermsStepPage> {
           onChanged: (v) => setState(() => _marketing = v),
           contentPadding: EdgeInsets.zero,
           activeThumbColor: MtaaniColors.coralDeep,
-          title: const Text('Send me dating tips and offers', style: TextStyle(fontSize: 14.5)),
+          title: const Text('Send me tips and offers', style: TextStyle(fontSize: 14.5)),
           subtitle: const Text('Optional. You can change this later.'),
         ),
       ],
@@ -238,7 +248,7 @@ class _BirthDateStepPageState extends State<BirthDateStepPage> {
     return OnboardingScaffold(
       step: OnboardingStep.birthDate,
       title: 'When\'s your birthday?',
-      subtitle: 'Mtaani is for adults 18 and over. Your age appears on your profile; your birth date doesn\'t.',
+      subtitle: 'Warom is for adults 18 and over. Your age appears on your profile; your birth date doesn\'t.',
       busy: _busy,
       primaryLabel: 'Continue',
       onPrimary: _date == null
@@ -299,7 +309,7 @@ class IneligiblePage extends StatelessWidget {
                 child: const Icon(Icons.eighteen_up_rating_outlined, size: 46, color: MtaaniColors.coralDeep),
               ),
               const SizedBox(height: 24),
-              const Text('Mtaani is for adults only',
+              const Text('Warom is for adults only',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: MtaaniColors.ink)),
               const SizedBox(height: 10),

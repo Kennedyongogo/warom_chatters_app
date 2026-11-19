@@ -2,40 +2,86 @@ import 'package:flutter/material.dart';
 
 import '../../models/profile.dart';
 import '../../services/mtaani_api.dart';
+import '../../services/warom_api.dart';
+import '../../services/warom_auth.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
+import '../gifts/gifts_page.dart';
 import '../landing/landing_page.dart';
+import '../vip/vip_page.dart';
+import '../wallet/wallet_page.dart';
+import 'change_password_page.dart';
+import 'delete_account_page.dart';
 import 'edit_profile_page.dart';
-import 'how_it_works_page.dart';
-import 'preferences_page.dart';
+import 'kyc_page.dart';
+import 'locked_photos_page.dart';
+import 'people_list_page.dart';
+import 'privacy_settings_page.dart';
 import 'safety_page.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
-  void _push(BuildContext context, Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  void _push(BuildContext context, Widget page) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
-  void _leave(BuildContext context, {required bool resetDemo}) {
-    final api = MtaaniApi.instance;
-    resetDemo ? api.reset() : api.logOut();
-    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LandingPage()), (route) => false);
+  Future<void> _leave(BuildContext context) async {
+    try {
+      await WaromAuth.instance.clear();
+    } catch (_) {}
+    MtaaniApi.instance.logOut();
+    if (!context.mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LandingPage()),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final api = MtaaniApi.instance;
+    final waromUser = WaromAuth.instance.user;
     return SafeArea(
+      top: false,
       child: ListenableBuilder(
         listenable: api,
         builder: (context, _) {
           final me = api.me;
-          if (me == null) return const SizedBox.shrink();
+          final name = me?.name ?? waromUser?['username']?.toString() ?? 'You';
+          final age = me?.age;
+          final area = me?.area.name ?? waromUser?['city']?.toString() ?? 'Worldwide';
+
           return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 30),
             children: [
-              const Text('Profile', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: MtaaniColors.ink)),
+              const Text(
+                'Profile',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
+              ),
               const SizedBox(height: 20),
-              _Header(profile: me, onEdit: () => _push(context, const EditProfilePage())),
+              if (me != null)
+                _Header(profile: me, onEdit: () => _push(context, const EditProfilePage()))
+              else
+                Column(
+                  children: [
+                    CircleAvatar(
+                      radius: 58,
+                      backgroundColor: MtaaniColors.blush,
+                      child: Text(
+                        name.isEmpty ? '?' : name[0].toUpperCase(),
+                        style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: MtaaniColors.coralDeep),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      age == null ? name : '$name, $age',
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(area, style: const TextStyle(color: MtaaniColors.muted)),
+                  ],
+                ),
               const SizedBox(height: 24),
               _Group(children: [
                 _Item(
@@ -45,40 +91,103 @@ class ProfilePage extends StatelessWidget {
                   onTap: () => _push(context, const EditProfilePage()),
                 ),
                 _Item(
-                  icon: Icons.tune_rounded,
-                  title: 'Discovery preferences',
-                  subtitle: '${me.showMe.label} · ${me.minAge}-${me.maxAge} · within ${me.maxDistanceKm} km',
-                  onTap: () => _push(context, const PreferencesPage()),
+                  icon: Icons.visibility_outlined,
+                  title: 'Visitors',
+                  subtitle: 'Who viewed your profile',
+                  onTap: () => _push(
+                    context,
+                    PeopleListPage(
+                      title: 'Visitors',
+                      loader: () => WaromApi.instance.visitors(),
+                      emptyTitle: 'No visitors yet',
+                      emptyMessage: 'People who view your profile will show up here.',
+                      emptyIcon: Icons.visibility_outlined,
+                    ),
+                  ),
                 ),
                 _Item(
-                  icon: Icons.shield_outlined,
-                  title: 'Safety & privacy',
-                  subtitle: 'Visibility, blocked people, safety tips',
-                  onTap: () => _push(context, const SafetyPage()),
+                  icon: Icons.people_outline_rounded,
+                  title: 'Followers',
+                  onTap: () => _push(
+                    context,
+                    PeopleListPage(
+                      title: 'Followers',
+                      loader: () => WaromApi.instance.followers(),
+                      emptyTitle: 'No followers',
+                      emptyMessage: 'When people follow you, they appear here.',
+                    ),
+                  ),
+                ),
+                _Item(
+                  icon: Icons.person_add_alt_1_outlined,
+                  title: 'Following',
+                  onTap: () => _push(
+                    context,
+                    PeopleListPage(
+                      title: 'Following',
+                      loader: () => WaromApi.instance.following(),
+                      emptyTitle: 'Not following anyone',
+                      emptyMessage: 'People you follow will show up here.',
+                    ),
+                  ),
                 ),
               ]),
               const SizedBox(height: 16),
               _Group(children: [
                 _Item(
-                  icon: Icons.auto_graph_rounded,
-                  title: 'How Mtaani works',
-                  subtitle: 'Live view of the matching rules',
-                  accent: true,
-                  onTap: () => _push(context, const HowItWorksPage()),
-                ),
-                SwitchListTile(
-                  secondary: const Icon(Icons.wifi_off_rounded, color: MtaaniColors.ink),
-                  title: const Text('Simulate poor network', style: TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: const Text('Demo: requests fail so you can see swipes aren\'t lost'),
-                  value: api.simulateNetworkFailure,
-                  activeThumbColor: MtaaniColors.coralDeep,
-                  onChanged: (v) => api.simulateNetworkFailure = v,
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Wallet',
+                  subtitle: 'Coins and purchases',
+                  onTap: () => _push(context, const WalletPage()),
                 ),
                 _Item(
-                  icon: Icons.restart_alt_rounded,
-                  title: 'Reset demo',
-                  subtitle: 'Clear all likes, matches and messages',
-                  onTap: () => _leave(context, resetDemo: true),
+                  icon: Icons.card_giftcard_rounded,
+                  title: 'Gifts',
+                  subtitle: 'Send and received gifts',
+                  onTap: () => _push(context, const GiftsPage()),
+                ),
+                _Item(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'VIP',
+                  subtitle: 'Plans and status',
+                  onTap: () => _push(context, const VipPage()),
+                ),
+                _Item(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Locked photos',
+                  subtitle: 'Sell unlockable media',
+                  onTap: () => _push(context, const LockedPhotosPage()),
+                ),
+                _Item(
+                  icon: Icons.verified_user_outlined,
+                  title: 'KYC & verification',
+                  subtitle: 'Required for withdrawals',
+                  onTap: () => _push(context, const KycPage()),
+                ),
+              ]),
+              const SizedBox(height: 16),
+              _Group(children: [
+                _Item(
+                  icon: Icons.lock_outline_rounded,
+                  title: 'Privacy',
+                  subtitle: 'Visibility and online status',
+                  onTap: () => _push(context, const PrivacySettingsPage()),
+                ),
+                _Item(
+                  icon: Icons.shield_outlined,
+                  title: 'Safety',
+                  subtitle: 'Blocked people and tips',
+                  onTap: () => _push(context, const SafetyPage()),
+                ),
+                _Item(
+                  icon: Icons.password_rounded,
+                  title: 'Change password',
+                  onTap: () => _push(context, const ChangePasswordPage()),
+                ),
+                _Item(
+                  icon: Icons.delete_outline_rounded,
+                  title: 'Delete account',
+                  onTap: () => _push(context, const DeleteAccountPage()),
                 ),
               ]),
               const SizedBox(height: 16),
@@ -86,7 +195,7 @@ class ProfilePage extends StatelessWidget {
                 _Item(
                   icon: Icons.logout_rounded,
                   title: 'Log out',
-                  onTap: () => _leave(context, resetDemo: false),
+                  onTap: () => _leave(context),
                 ),
               ]),
             ],
@@ -105,53 +214,16 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final completeness = [
-      profile.photos.isNotEmpty,
-      profile.photos.length >= 3,
-      profile.bio.isNotEmpty,
-      profile.interests.length >= 3,
-      profile.work != null && profile.work!.isNotEmpty,
-    ].where((x) => x).length / 5;
     return Column(
       children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            SizedBox.square(
-              dimension: 132,
-              child: CircularProgressIndicator(
-                value: completeness,
-                strokeWidth: 5,
-                backgroundColor: MtaaniColors.line,
-                color: MtaaniColors.coralDeep,
-              ),
-            ),
-            Avatar(profile: profile, size: 116),
-            Positioned(
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(color: MtaaniColors.coralDeep, borderRadius: BorderRadius.circular(100)),
-                child: Text('${(completeness * 100).round()}% complete',
-                    style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
-              ),
-            ),
-          ],
-        ),
+        Avatar(profile: profile, size: 116),
         const SizedBox(height: 14),
-        Text('${profile.name}, ${profile.age}',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: MtaaniColors.ink)),
+        Text(
+          '${profile.name}, ${profile.age}',
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
+        ),
         const SizedBox(height: 4),
         Text(profile.area.name, style: const TextStyle(color: MtaaniColors.muted)),
-        if (!profile.discoverable) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: MtaaniColors.blush, borderRadius: BorderRadius.circular(100)),
-            child: const Text('Hidden from Discover',
-                style: TextStyle(color: MtaaniColors.coralDeep, fontWeight: FontWeight.w700, fontSize: 12.5)),
-          ),
-        ],
       ],
     );
   }
@@ -188,16 +260,19 @@ class _Item extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
-  final bool accent;
 
-  const _Item({required this.icon, required this.title, this.subtitle, required this.onTap, this.accent = false});
+  const _Item({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ? MtaaniColors.coralDeep : MtaaniColors.ink;
     return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+      leading: Icon(icon, color: MtaaniColors.ink),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700, color: MtaaniColors.ink)),
       subtitle: subtitle == null ? null : Text(subtitle!),
       trailing: const Icon(Icons.chevron_right_rounded, color: MtaaniColors.muted),
       onTap: onTap,

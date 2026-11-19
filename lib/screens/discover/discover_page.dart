@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../models/profile.dart';
-import '../../models/social.dart';
-import '../../services/mtaani_api.dart';
+import '../../models/person.dart';
+import '../../services/warom_api.dart';
 import '../../theme.dart';
-import '../../widgets/common.dart';
-import '../profile/preferences_page.dart';
-import 'match_page.dart';
-import 'profile_details_page.dart';
-import 'swipe_card.dart';
+import '../../widgets/person_widgets.dart';
+import '../profile/person_profile_page.dart';
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -18,258 +14,138 @@ class DiscoverPage extends StatefulWidget {
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
-  final _api = MtaaniApi.instance;
-  final List<Profile> _queue = [];
-  final Set<String> _pending = {};
-  final Map<String, GlobalKey<SwipeCardState>> _keys = {};
-  bool _loading = false;
-  bool _exhausted = false;
-  Object? _error;
-  late int _version = _api.discoveryVersion;
+  final _country = TextEditingController();
+  final _city = TextEditingController();
+  late Future<List<Person>> _future;
 
   @override
   void initState() {
     super.initState();
-    _api.addListener(_onApiChanged);
-    _loadMore();
+    _future = WaromApi.instance.discover();
   }
 
   @override
   void dispose() {
-    _api.removeListener(_onApiChanged);
+    _country.dispose();
+    _city.dispose();
     super.dispose();
   }
 
-  void _onApiChanged() {
-    if (_api.discoveryVersion == _version || _api.me == null) return;
-    _version = _api.discoveryVersion;
+  void _search() {
     setState(() {
-      _queue.clear();
-      _exhausted = false;
+      _future = WaromApi.instance.discover(
+        country: _country.text.trim(),
+        city: _city.text.trim(),
+      );
     });
-    _loadMore();
   }
-
-  Future<void> _loadMore() async {
-    if (_loading) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final batch = await _api.discover(skip: {..._queue.map((p) => p.id), ..._pending});
-      if (!mounted) return;
-      setState(() {
-        _queue.addAll(batch);
-        _exhausted = batch.isEmpty;
-      });
-    } catch (e) {
-      if (mounted) setState(() => _error = e);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _decide(Profile profile, SwipeAction action) async {
-    setState(() {
-      _queue.remove(profile);
-      _pending.add(profile.id);
-    });
-    if (_queue.length < 2 && !_exhausted) _loadMore();
-    try {
-      final result = await _api.swipe(profile.id, action);
-      if (!mounted) return;
-      if (result.matched) {
-        Navigator.push(
-          context,
-          PageRouteBuilder(
-            opaque: false,
-            transitionDuration: const Duration(milliseconds: 400),
-            pageBuilder: (_, __, ___) => MatchPage(match: result.match!, other: profile),
-            transitionsBuilder: (_, anim, __, child) => FadeTransition(opacity: anim, child: child),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      // The card animated away optimistically; put it back so the decision is never silently lost.
-      setState(() => _queue.insert(0, profile));
-      final verb = action == SwipeAction.like ? 'like' : 'pass';
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text('Your $verb on ${profile.firstName} wasn\'t saved. $e'),
-          action: SnackBarAction(label: 'Retry', onPressed: () => _decide(profile, action)),
-        ));
-    } finally {
-      _pending.remove(profile.id);
-    }
-  }
-
-  void _swipeTop(SwipeAction action) {
-    if (_queue.isEmpty) return;
-    _keys[_queue.first.id]?.currentState?.swipe(action);
-  }
-
-  Future<void> _openDetails(Profile profile) async {
-    final action = await Navigator.push<SwipeAction>(
-      context,
-      MaterialPageRoute(builder: (_) => ProfileDetailsPage(profile: profile, showActions: true)),
-    );
-    if (action != null && mounted) _swipeTop(action);
-  }
-
-  Set<String> _shared(Profile p) => p.interests.toSet().intersection(_api.me?.interests.toSet() ?? const {});
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 8, 6),
-            child: Row(
-              children: [
-                const BrandTitle(),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Discovery preferences',
-                  icon: const Icon(Icons.tune_rounded, color: MtaaniColors.ink),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PreferencesPage())),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 6, 14, 0),
-              child: _buildDeck(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _RoundAction(
-                  icon: Icons.close_rounded,
-                  color: MtaaniColors.coral,
-                  size: 64,
-                  onTap: _queue.isEmpty ? null : () => _swipeTop(SwipeAction.pass),
-                ),
-                _RoundAction(
-                  icon: Icons.star_rounded,
-                  color: MtaaniColors.gold,
-                  size: 50,
-                  onTap: _queue.isEmpty
-                      ? null
-                      : () => ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(const SnackBar(content: Text('Super Likes are coming in a future release.'))),
-                ),
-                _RoundAction(
-                  icon: Icons.favorite_rounded,
-                  color: Colors.white,
-                  gradient: MtaaniColors.brandGradient,
-                  size: 64,
-                  onTap: _queue.isEmpty ? null : () => _swipeTop(SwipeAction.like),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDeck() {
-    if (_queue.isEmpty) {
-      if (_loading) return const Center(child: CircularProgressIndicator(color: MtaaniColors.coralDeep));
-      if (_error != null) {
-        return EmptyState(
-          icon: Icons.wifi_off_rounded,
-          title: 'Can\'t load profiles',
-          message: '$_error',
-          action: SizedBox(width: 200, child: PillButton.primary(onTap: _loadMore, height: 48, child: const Text('Try again'))),
-        );
-      }
-      return EmptyState(
-        icon: Icons.travel_explore_rounded,
-        title: 'You\'re all caught up',
-        message: 'You\'ve seen everyone who fits your preferences nearby. Widen your age range or distance to meet more people.',
-        action: SizedBox(
-          width: 220,
-          child: PillButton.primary(
-            height: 48,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PreferencesPage())),
-            child: const Text('Adjust preferences'),
-          ),
-        ),
-      );
-    }
-    final visible = _queue.take(2).toList();
-    return Stack(
+    return Column(
       children: [
-        if (visible.length > 1)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Transform.translate(
-                offset: const Offset(0, 12),
-                child: Transform.scale(
-                  scale: 0.95,
-                  child: ProfileCardFace(
-                    profile: visible[1],
-                    distance: _api.distanceLabel(visible[1]),
-                    sharedInterests: _shared(visible[1]),
+        const ScreenHeader(
+          title: 'Discover',
+          subtitle: 'Find people by country and city',
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _country,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    hintText: 'Country',
+                    prefixIcon: Icon(Icons.public_rounded),
                   ),
+                  onSubmitted: (_) => _search(),
                 ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _city,
+                  textInputAction: TextInputAction.search,
+                  decoration: const InputDecoration(
+                    hintText: 'City',
+                    prefixIcon: Icon(Icons.location_city_rounded),
+                  ),
+                  onSubmitted: (_) => _search(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: _search,
+                style: IconButton.styleFrom(
+                  backgroundColor: MtaaniColors.coralDeep,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.search_rounded),
+              ),
+            ],
           ),
-        Positioned.fill(
-          child: SwipeCard(
-            key: _keys.putIfAbsent(visible[0].id, GlobalKey<SwipeCardState>.new),
-            profile: visible[0],
-            distance: _api.distanceLabel(visible[0]),
-            sharedInterests: _shared(visible[0]),
-            onSwiped: (action) => _decide(visible[0], action),
-            onOpen: () => _openDetails(visible[0]),
+        ),
+        Expanded(
+          child: FutureBuilder<List<Person>>(
+            future: _future,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const LoadingBody();
+              }
+              if (snap.hasError) {
+                return ErrorBody(error: snap.error!, onRetry: _search);
+              }
+              final people = snap.data ?? const <Person>[];
+              if (people.isEmpty) {
+                return const EmptyLike(
+                  icon: Icons.travel_explore_rounded,
+                  title: 'No matches',
+                  message: 'Try another country or city, or clear filters to browse everyone.',
+                );
+              }
+              return RefreshIndicator(
+                color: MtaaniColors.coralDeep,
+                onRefresh: () async => _search(),
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: people.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, indent: 88, color: MtaaniColors.line),
+                  itemBuilder: (context, i) {
+                    final p = people[i];
+                    return PersonTile(
+                      person: p,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => PersonProfilePage(personId: p.id)),
+                      ),
+                      trailing: IconButton(
+                        tooltip: 'Like',
+                        onPressed: () async {
+                          try {
+                            await WaromApi.instance.swipe(p.id, 'like');
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Liked ${p.displayName}')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.favorite_border_rounded, color: MtaaniColors.coralDeep),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ),
       ],
-    );
-  }
-}
-
-class _RoundAction extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final Gradient? gradient;
-  final double size;
-  final VoidCallback? onTap;
-
-  const _RoundAction({required this.icon, required this.color, required this.size, this.gradient, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.4 : 1,
-      child: Material(
-        shape: const CircleBorder(),
-        elevation: 6,
-        shadowColor: Colors.black26,
-        color: Colors.white,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onTap,
-          child: Ink(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(shape: BoxShape.circle, gradient: gradient),
-            child: Icon(icon, color: color, size: size * 0.48),
-          ),
-        ),
-      ),
     );
   }
 }

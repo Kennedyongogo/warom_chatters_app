@@ -15,7 +15,7 @@ class MtaaniApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mtaani',
+      title: 'Warom chatters',
       debugShowCheckedModeBanner: false,
       theme: buildMtaaniTheme(),
       home: const _FirstFrameGate(child: LandingPage()),

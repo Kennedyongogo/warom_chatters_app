@@ -32,7 +32,7 @@ Future<bool> showSafetySheet(BuildContext context, {required Profile profile, St
           ListTile(
             leading: const Icon(Icons.block_rounded, color: MtaaniColors.coralDeep),
             title: Text('Block ${profile.firstName}', style: const TextStyle(color: MtaaniColors.coralDeep)),
-            subtitle: const Text('You won\'t see each other anywhere on Mtaani.'),
+            subtitle: const Text('You won\'t see each other anywhere on Warom.'),
             onTap: () => Navigator.pop(context, 'block'),
           ),
           ListTile(
@@ -101,7 +101,7 @@ Future<bool> _report(BuildContext context, Profile profile, {String? messageText
     await api.block(profile.id);
   });
   if (done && context.mounted) {
-    _toast(context, 'Thanks for keeping Mtaani safe. We\'ll review this and ${profile.firstName} has been blocked.');
+    _toast(context, 'Thanks for keeping Warom safe. We\'ll review this and ${profile.firstName} has been blocked.');
   }
   return done;
 }
