@@ -5,6 +5,7 @@ import '../../models/profile.dart';
 import '../../services/mtaani_api.dart';
 import '../../theme.dart';
 import '../../widgets/profile_fields.dart';
+
 import 'onboarding_flow.dart';
 
 class BasicsStepPage extends StatefulWidget {
@@ -160,7 +161,7 @@ class _AboutStepPageState extends State<AboutStepPage> {
           ? () => submitStep(
                 context,
                 () => MtaaniApi.instance.saveAbout(bio: _bio.text, interests: _interests, work: _work.text),
-                OnboardingStep.location,
+                OnboardingStep.activate,
                 setBusy: (b) => setState(() => _busy = b),
               )
           : null,
@@ -173,120 +174,18 @@ class _AboutStepPageState extends State<AboutStepPage> {
           controller: _bio,
           maxLines: 4,
           maxLength: 300,
+          scrollPadding: const EdgeInsets.only(bottom: 120),
           onChanged: (_) => setState(() {}),
           decoration: const InputDecoration(hintText: 'Weekend plans, favourite food, what makes you laugh...'),
         ),
         const SizedBox(height: 6),
         const FieldLabel('Work', hint: 'Optional'),
-        TextField(controller: _work, decoration: const InputDecoration(hintText: 'What do you do?')),
+        TextField(
+          controller: _work,
+          scrollPadding: const EdgeInsets.only(bottom: 120),
+          decoration: const InputDecoration(hintText: 'What do you do?'),
+        ),
       ],
-    );
-  }
-}
-
-class LocationStepPage extends StatefulWidget {
-  const LocationStepPage({super.key});
-
-  @override
-  State<LocationStepPage> createState() => _LocationStepPageState();
-}
-
-class _LocationStepPageState extends State<LocationStepPage> {
-  bool _manual = false;
-  Area _area = MtaaniApi.instance.me!.area;
-  bool _busy = false;
-
-  void _save(Area area, {required bool fromDevice}) => submitStep(
-        context,
-        () => MtaaniApi.instance.saveLocation(area, fromDevice: fromDevice),
-        OnboardingStep.activate,
-        setBusy: (b) => setState(() => _busy = b),
-      );
-
-  /// Stands in for the operating system's permission prompt until real location is wired up.
-  Future<void> _requestPermission() async {
-    final granted = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        icon: const Icon(Icons.location_on_rounded),
-        title: const Text('Allow Warom to access this device\'s approximate location?'),
-        content: const Text('Simulated system prompt', style: TextStyle(color: MtaaniColors.muted, fontSize: 12.5)),
-        actionsAlignment: MainAxisAlignment.center,
-        actionsOverflowDirection: VerticalDirection.down,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('While using the app')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Only this time')),
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Don\'t allow')),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (granted == true) {
-      _save(Area.all.first, fromDevice: true);
-    } else {
-      setState(() => _manual = true);
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('No problem. Choose your area instead.')));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return OnboardingScaffold(
-      step: OnboardingStep.location,
-      title: _manual ? 'Where are you based?' : 'Find people around you',
-      subtitle: _manual
-          ? 'Choose the area you spend most of your time in. You can change it any time.'
-          : 'Warom uses your approximate location to show people nearby — wherever you are.',
-      busy: _busy,
-      primaryLabel: _manual ? 'Continue' : 'Allow location',
-      onPrimary: _manual ? () => _save(_area, fromDevice: false) : _requestPermission,
-      secondary: _manual
-          ? null
-          : TextButton(
-              onPressed: _busy ? null : () => setState(() => _manual = true),
-              child: const Text('Choose my area instead',
-                  style: TextStyle(color: MtaaniColors.muted, fontWeight: FontWeight.w700)),
-            ),
-      children: _manual
-          ? [
-              DropdownButtonFormField<Area>(
-                initialValue: _area,
-                isExpanded: true,
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.location_city_rounded)),
-                items: [for (final a in Area.all) DropdownMenuItem(value: a, child: Text(a.name))],
-                onChanged: (a) => setState(() => _area = a ?? _area),
-              ),
-            ]
-          : [
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: const BoxDecoration(color: MtaaniColors.blush, shape: BoxShape.circle),
-                  child: const Icon(Icons.near_me_rounded, size: 56, color: MtaaniColors.coralDeep),
-                ),
-              ),
-              const SizedBox(height: 26),
-              for (final (icon, text) in const [
-                (Icons.blur_on_rounded, 'We only use approximate location, never your exact address.'),
-                (Icons.visibility_off_outlined, 'Others see a distance like "4 km away", never where you are.'),
-                (Icons.phonelink_lock_outlined, 'Only while you\'re using the app. Turn it off any time.'),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(icon, color: MtaaniColors.coralDeep, size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(text, style: const TextStyle(fontSize: 15, height: 1.4))),
-                    ],
-                  ),
-                ),
-            ],
     );
   }
 }

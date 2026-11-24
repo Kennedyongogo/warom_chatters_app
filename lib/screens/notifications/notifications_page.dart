@@ -27,6 +27,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> _readAll() async {
     try {
       await WaromApi.instance.readAllNotifications();
+      if (mounted) showSuccessSnack(context, 'All notifications marked read');
       _reload();
     } catch (e) {
       if (mounted) showApiError(context, e);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/person.dart';
+import '../../services/call_launcher.dart';
 import '../../services/warom_api.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
@@ -151,39 +152,60 @@ class _PersonProfilePageState extends State<PersonProfilePage> {
           bottomNavigationBar: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => GiftsPage(receiverId: person.id, receiverName: person.displayName),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => CallLauncher.instance.startOutgoingToPerson(
+                            context,
+                            person,
+                            video: false,
+                          ),
+                          icon: const Icon(Icons.call_rounded, size: 18),
+                          label: const Text('Call'),
                         ),
                       ),
-                      icon: const Icon(Icons.card_giftcard_rounded),
-                      label: const Text('Gift'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: MtaaniColors.coralDeep,
-                        side: const BorderSide(color: MtaaniColors.line),
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => CallLauncher.instance.startOutgoingToPerson(
+                            context,
+                            person,
+                            video: true,
+                          ),
+                          icon: const Icon(Icons.videocam_rounded, size: 18),
+                          label: const Text('Video'),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _message(person),
-                      icon: const Icon(Icons.chat_bubble_rounded),
-                      label: const Text('Message'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: MtaaniColors.coralDeep,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => GiftsPage(receiverId: person.id, receiverName: person.displayName),
+                            ),
+                          ),
+                          icon: const Icon(Icons.card_giftcard_rounded, size: 18),
+                          label: const Text('Gift'),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => _message(person),
+                          icon: const Icon(Icons.chat_bubble_rounded, size: 18),
+                          label: const Text('Message'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -36,7 +36,7 @@ class _LivePageState extends State<LivePage> {
     try {
       await WaromApi.instance.startLive(title);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Live started')));
+        showSuccessSnack(context, 'Live started');
         _reload();
       }
     } catch (e) {
@@ -68,7 +68,7 @@ class _LivePageState extends State<LivePage> {
                       const SizedBox(height: 10),
                       TextField(controller: _title, decoration: const InputDecoration(hintText: 'Stream title')),
                       const SizedBox(height: 12),
-                      PillButton.primary(onTap: _start, height: 48, child: const Text('Start live')),
+                      PillButton.primary(onTap: _start, child: const Text('Start live')),
                     ],
                   ),
                 ),

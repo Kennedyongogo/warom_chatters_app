@@ -36,9 +36,7 @@ class _GiftsPageState extends State<GiftsPage> {
   Future<void> _send(String giftId) async {
     final receiverId = widget.receiverId;
     if (receiverId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Open a profile first to send a gift')),
-      );
+      showInfoSnack(context, 'Open a profile first to send a gift');
       return;
     }
     if (_sending) return;
@@ -46,8 +44,9 @@ class _GiftsPageState extends State<GiftsPage> {
     try {
       await WaromApi.instance.sendGift(receiverId: receiverId, giftId: giftId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gift sent${widget.receiverName == null ? '' : ' to ${widget.receiverName}'}')),
+        showSuccessSnack(
+          context,
+          'Gift sent${widget.receiverName == null ? '' : ' to ${widget.receiverName}'}',
         );
       }
     } catch (e) {

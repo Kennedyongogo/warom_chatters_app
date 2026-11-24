@@ -67,23 +67,26 @@ class _ActivationPageState extends State<ActivationPage> {
   Widget build(BuildContext context) {
     final me = MtaaniApi.instance.me!;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
           child: Column(
             children: [
-              const Spacer(),
+              const SizedBox(height: 24),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 400),
                 child: _done
-                    ? Avatar(key: const ValueKey('avatar'), profile: me, size: 120, ring: true)
-                    : const HeartMark(key: ValueKey('heart'), size: 80),
+                    ? Avatar(key: const ValueKey('avatar'), profile: me, size: 100, ring: true)
+                    : const HeartMark(key: ValueKey('heart'), size: 72),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 18),
               Text(
-                _done ? 'You\'re all set, ${me.firstName}!' : (_error == null ? 'Getting you ready…' : 'Almost there'),
+                _done
+                    ? 'You\'re all set, ${me.firstName}!'
+                    : (_error == null ? 'Getting you ready…' : 'Almost there'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
               ),
               const SizedBox(height: 8),
               Text(
@@ -91,9 +94,13 @@ class _ActivationPageState extends State<ActivationPage> {
                     ? 'Your profile is live. People nearby can now discover you.'
                     : (_error ?? 'We run a few final checks before anyone can see your profile.'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: _error != null ? MtaaniColors.coralDeep : MtaaniColors.muted, height: 1.45),
+                style: TextStyle(
+                  fontSize: 15,
+                  color: _error != null ? MtaaniColors.coralDeep : MtaaniColors.muted,
+                  height: 1.45,
+                ),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 24),
               for (var i = 0; i < _checks.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -107,21 +114,32 @@ class _ActivationPageState extends State<ActivationPage> {
                                 ? const SizedBox.square(
                                     key: ValueKey('busy'),
                                     dimension: 22,
-                                    child: CircularProgressIndicator(strokeWidth: 2.4, color: MtaaniColors.coralDeep),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: MtaaniColors.coralDeep,
+                                    ),
                                   )
-                                : const Icon(Icons.radio_button_unchecked_rounded, key: ValueKey('todo'), color: MtaaniColors.line)),
+                                : const Icon(
+                                    Icons.radio_button_unchecked_rounded,
+                                    key: ValueKey('todo'),
+                                    color: MtaaniColors.line,
+                                  )),
                       ),
                       const SizedBox(width: 12),
-                      Text(_checks[i],
+                      Expanded(
+                        child: Text(
+                          _checks[i],
                           style: TextStyle(
                             fontSize: 15.5,
                             fontWeight: FontWeight.w600,
                             color: i < _checked ? MtaaniColors.ink : MtaaniColors.muted,
-                          )),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              const Spacer(),
+              const SizedBox(height: 28),
               if (_done)
                 PillButton.primary(
                   onTap: () => Navigator.pushAndRemoveUntil(
@@ -131,7 +149,11 @@ class _ActivationPageState extends State<ActivationPage> {
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [Text('Start discovering'), SizedBox(width: 8), Icon(Icons.arrow_forward_rounded, size: 20)],
+                    children: [
+                      Text('Start discovering'),
+                      SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_rounded, size: 20),
+                    ],
                   ),
                 )
               else if (_error != null)

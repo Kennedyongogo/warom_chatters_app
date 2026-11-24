@@ -33,7 +33,11 @@ class SafetyPage extends StatelessWidget {
                   subtitle: const Text('Turn off to take a break. Your matches and chats stay.'),
                   value: me.discoverable,
                   activeThumbColor: MtaaniColors.coralDeep,
-                  onChanged: (v) => guarded(context, () => api.updateProfile((p) => p.discoverable = v)),
+                  onChanged: (v) => guarded(
+                    context,
+                    () => api.updateProfile((p) => p.discoverable = v),
+                    successMessage: v ? 'You\'re visible in Discover' : 'Hidden from Discover',
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -47,7 +51,11 @@ class SafetyPage extends StatelessWidget {
                     leading: Avatar(profile: p, size: 44),
                     title: Text(p.firstName, style: const TextStyle(fontWeight: FontWeight.w700)),
                     trailing: TextButton(
-                      onPressed: () => guarded(context, () => api.unblock(p.id)),
+                      onPressed: () => guarded(
+                        context,
+                        () => api.unblock(p.id),
+                        successMessage: '${p.firstName} unblocked',
+                      ),
                       child: const Text('Unblock', style: TextStyle(color: MtaaniColors.coralDeep)),
                     ),
                   ),

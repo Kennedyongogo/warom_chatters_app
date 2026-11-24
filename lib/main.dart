@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
 import 'screens/landing/landing_page.dart';
+import 'services/call_launcher.dart';
 import 'theme.dart';
+
+final GlobalKey<NavigatorState> waromNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   // Hold the first frame so the launch screen stays up until the landing photo is decoded.
-  WidgetsFlutterBinding.ensureInitialized().deferFirstFrame();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  binding.deferFirstFrame();
+  CallLauncher.instance.attach(waromNavigatorKey);
   runApp(const MtaaniApp());
 }
 
@@ -16,6 +21,7 @@ class MtaaniApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Warom chatters',
+      navigatorKey: waromNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: buildMtaaniTheme(),
       home: const _FirstFrameGate(child: LandingPage()),

@@ -33,7 +33,7 @@ class _VipPageState extends State<VipPage> {
     try {
       await WaromApi.instance.subscribeVip(planId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('VIP activated')));
+        showSuccessSnack(context, 'VIP activated');
         _reload();
       }
     } catch (e) {
@@ -127,10 +127,6 @@ class _VipPageState extends State<VipPage> {
                                 const Spacer(),
                                 FilledButton(
                                   onPressed: () => _subscribe('${raw['id']}'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: MtaaniColors.coralDeep,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                                  ),
                                   child: const Text('Subscribe'),
                                 ),
                               ],

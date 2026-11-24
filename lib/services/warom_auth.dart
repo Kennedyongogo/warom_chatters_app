@@ -15,7 +15,11 @@ class WaromSession {
   String get id => '${user['id']}';
   String get username => '${user['username'] ?? ''}';
   String? get email => user['email'] as String?;
-  bool get onboardingCompleted => user['onboarding_completed'] == true;
+  bool get onboardingCompleted =>
+      user['onboarding_completed'] == true ||
+      user['onboarding_completed'] == 1 ||
+      user['onboarding_completed'] == 'true' ||
+      user['onboarding_completed'] == '1';
 }
 
 class WaromAuth {
@@ -34,19 +38,65 @@ class WaromAuth {
 
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString(_tokenKey);
+    final token = prefs.getString(_tokenKey);
     final raw = prefs.getString(_userKey);
-    if (raw != null) {
+    if (token != null && raw != null) {
       try {
+        _token = token;
         _user = jsonDecode(raw) as Map<String, dynamic>;
+        return;
       } catch (_) {
-        _user = null;
+        // Fall through — keep any in-memory session from this run.
       }
     }
-    if (_token == null || _user == null) {
-      _token = null;
-      _user = null;
+    // Never wipe a live in-memory session just because prefs are empty
+    // (hot reload / race during onboarding was causing "Session expired").
+  }
+
+  /// Refresh the cached user from GET /api/auth/me (source of truth for onboarding_completed).
+  Future<WaromSession> refreshMe() async {
+    await restore();
+    if (_token == null) {
+      throw const ApiException('Session expired. Please log in again.');
     }
+    http.Response response;
+    try {
+      response = await http
+          .get(
+            Uri.parse('$kWaromApiBase/api/auth/me'),
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $_token',
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (_) {
+      throw const ApiException(
+        'Could not reach WAROM. Check that the API is running and WAROM_API_BASE is correct.',
+      );
+    }
+
+    Map<String, dynamic>? payload;
+    try {
+      payload = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException('Server error (${response.statusCode}).');
+    }
+
+    if (response.statusCode >= 400 || payload['success'] == false) {
+      throw ApiException(payload['message']?.toString() ?? 'Could not load profile.');
+    }
+
+    final data = payload['data'];
+    final user = data is Map<String, dynamic>
+        ? data
+        : (data is Map ? Map<String, dynamic>.from(data) : null);
+    if (user == null) throw const ApiException('Unexpected response from server.');
+
+    _user = user;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(user));
+    return WaromSession(token: _token!, user: user);
   }
 
   Future<WaromSession> register({
@@ -122,6 +172,14 @@ class WaromAuth {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+  }
+
+  /// Merge server profile fields into the cached session user (e.g. after onboarding).
+  Future<void> mergeUser(Map<String, dynamic> patch) async {
+    if (_user == null) return;
+    _user = {..._user!, ...patch};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userKey, jsonEncode(_user));
   }
 
   Future<WaromSession> _persist(Map<String, dynamic> data) async {

@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/profile.dart';
 import '../theme.dart';
+import 'common.dart';
 
 const allInterests = [
   'Travel', 'Coffee', 'Music', 'Afrobeats', 'Dancing', 'Hiking', 'Nature', 'Cooking', //
@@ -35,15 +36,13 @@ class _PhotoGridState extends State<PhotoGrid> {
     setState(() => _uploading++);
     try {
       final stored = await widget.upload(localPath);
-      if (mounted) widget.onChanged([...widget.photos, stored]);
+      if (mounted) {
+        widget.onChanged([...widget.photos, stored]);
+        showSuccessSnack(context, 'Photo added');
+      }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text('Photo upload failed. $e'),
-          action: SnackBarAction(label: 'Retry', onPressed: () => _upload(localPath)),
-        ));
+      showApiError(context, e, retry: () => _upload(localPath));
     } finally {
       if (mounted) setState(() => _uploading--);
     }
@@ -102,37 +101,12 @@ class _PhotoGridState extends State<PhotoGrid> {
   }
 
   Future<void> _add(BuildContext context) async {
-    final choice = await showModalBottomSheet<String>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded, color: MtaaniColors.coralDeep),
-              title: const Text('Choose from gallery'),
-              onTap: () => Navigator.pop(context, 'gallery'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.auto_awesome_rounded, color: MtaaniColors.coralDeep),
-              title: const Text('Use a sample photo (demo)'),
-              onTap: () => Navigator.pop(context, 'sample'),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 85,
     );
-    if (choice == null) return;
-    String? path;
-    if (choice == 'gallery') {
-      final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
-      path = file?.path;
-    } else {
-      path = 'assets/images/profiles/juma.jpg';
-    }
-    if (path != null) await _upload(path);
+    if (file != null) await _upload(file.path);
   }
 
   @override
@@ -276,7 +250,7 @@ class ChoiceRow<T> extends StatelessWidget {
                 onTap: () => onChanged(o),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  height: 54,
+                  height: 46,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: o == value ? MtaaniColors.blush : Colors.white,

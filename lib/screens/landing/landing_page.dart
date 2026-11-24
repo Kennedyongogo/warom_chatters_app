@@ -106,22 +106,25 @@ class _LandingPageState extends State<LandingPage> {
                           const SizedBox(height: 30),
                           PillButton.primary(
                             onTap: _openRegister,
+                            height: 50,
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text('Create Account'),
                                 SizedBox(width: 8),
-                                Icon(Icons.arrow_forward_rounded, size: 20),
+                                Icon(Icons.arrow_forward_rounded, size: 18),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 12),
                           PillButton(
                             onTap: _openLogin,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.9), width: 1.4),
+                            height: 50,
+                            color: Colors.white.withValues(alpha: 0.08),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.55), width: 1.2),
                             child: const Text('Log In'),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 18),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

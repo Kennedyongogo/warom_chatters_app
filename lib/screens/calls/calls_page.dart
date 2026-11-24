@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/person.dart';
+import '../../services/call_launcher.dart';
 import '../../services/warom_api.dart';
 import '../../theme.dart';
 import '../../widgets/person_widgets.dart';
@@ -158,20 +159,11 @@ class _CallList extends StatelessWidget {
                 trailing: peer == null
                     ? null
                     : IconButton(
-                        onPressed: () async {
-                          try {
-                            await WaromApi.instance.startCall(peer.id, isVideo ? 'video' : 'voice');
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Calling ${peer.displayName}…')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                            }
-                          }
-                        },
+                        onPressed: () => CallLauncher.instance.startOutgoingToPerson(
+                          context,
+                          peer,
+                          video: isVideo,
+                        ),
                         icon: Icon(
                           isVideo ? Icons.videocam_rounded : Icons.call_rounded,
                           color: MtaaniColors.coralDeep,

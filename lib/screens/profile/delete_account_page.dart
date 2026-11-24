@@ -26,9 +26,7 @@ class _DeleteAccountPageState extends State<DeleteAccountPage> {
 
   Future<void> _delete() async {
     if (_confirm.text.trim().toUpperCase() != 'DELETE') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Type DELETE to confirm')),
-      );
+      showWarnSnack(context, 'Type DELETE to confirm');
       return;
     }
     setState(() => _busy = true);

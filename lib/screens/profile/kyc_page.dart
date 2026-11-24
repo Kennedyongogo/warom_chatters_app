@@ -35,9 +35,7 @@ class _KycPageState extends State<KycPage> {
   Future<void> _submit() async {
     final url = _url.text.trim();
     if (url.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Paste a document URL (upload via media API first)')),
-      );
+      showWarnSnack(context, 'Paste a document URL (upload via media API first)');
       return;
     }
     setState(() => _submitting = true);
@@ -45,7 +43,7 @@ class _KycPageState extends State<KycPage> {
       await WaromApi.instance.submitVerification(kind: _kind, documentUrls: [url]);
       _url.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Submitted for review')));
+        showSuccessSnack(context, 'Submitted for review');
         _reload();
       }
     } catch (e) {

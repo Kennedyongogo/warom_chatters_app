@@ -26,18 +26,18 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
 
   Future<void> _save() async {
     if (_next.text != _confirm.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      showWarnSnack(context, 'Passwords do not match');
       return;
     }
     if (_next.text.length < 8) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Use at least 8 characters')));
+      showWarnSnack(context, 'Use at least 8 characters');
       return;
     }
     setState(() => _saving = true);
     try {
       await WaromApi.instance.changePassword(current: _current.text, next: _next.text);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated')));
+        showSuccessSnack(context, 'Password updated');
         Navigator.pop(context);
       }
     } catch (e) {

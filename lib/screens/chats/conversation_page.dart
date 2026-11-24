@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/person.dart';
+import '../../services/call_launcher.dart';
 import '../../services/warom_api.dart';
 import '../../services/warom_auth.dart';
 import '../../theme.dart';
@@ -94,23 +95,26 @@ class _ConversationPageState extends State<ConversationPage> {
           ),
         ),
         actions: [
-          if (widget.other != null)
+          if (widget.other != null) ...[
             IconButton(
               tooltip: 'Voice call',
-              onPressed: () async {
-                try {
-                  await WaromApi.instance.startCall(widget.other!.id, 'voice');
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(this.context).showSnackBar(
-                    const SnackBar(content: Text('Voice call started')),
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-                  showApiError(this.context, e);
-                }
-              },
+              onPressed: () => CallLauncher.instance.startOutgoingToPerson(
+                context,
+                widget.other!,
+                video: false,
+              ),
               icon: const Icon(Icons.call_rounded),
             ),
+            IconButton(
+              tooltip: 'Video call',
+              onPressed: () => CallLauncher.instance.startOutgoingToPerson(
+                context,
+                widget.other!,
+                video: true,
+              ),
+              icon: const Icon(Icons.videocam_rounded),
+            ),
+          ],
         ],
       ),
       body: Column(

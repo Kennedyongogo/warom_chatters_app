@@ -40,7 +40,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (ok) Navigator.pop(context);
+    if (ok) {
+      showSuccessSnack(context, 'Profile saved');
+      Navigator.pop(context);
+    }
   }
 
   @override

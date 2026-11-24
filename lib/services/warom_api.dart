@@ -97,6 +97,21 @@ class WaromApi {
     );
   }
 
+  Future<Map<String, dynamic>> updateCall(
+    String callId, {
+    String? status,
+    int? durationSeconds,
+    Map<String, dynamic>? signallingPayload,
+  }) async {
+    return _map(
+      await _client.patch('/api/calls/$callId', {
+        if (status != null) 'status': status,
+        if (durationSeconds != null) 'duration_seconds': durationSeconds,
+        if (signallingPayload != null) 'signalling_payload': signallingPayload,
+      }),
+    );
+  }
+
   Future<Map<String, dynamic>> income() async => _map(await _client.get('/api/income'));
   Future<Map<String, dynamic>> incomeTransactions() async =>
       _map(await _client.get('/api/income/transactions'));
@@ -192,6 +207,10 @@ class WaromApi {
   Future<List<dynamic>> giftsReceived() async {
     final data = await _client.get('/api/profiles/me/gifts');
     return data is List ? data : const [];
+  }
+
+  Future<Map<String, dynamic>> updateMe(Map<String, dynamic> patch) async {
+    return _map(await _client.patch('/api/profiles/me', patch));
   }
 
   Future<Map<String, dynamic>> privacy() async => _map(await _client.get('/api/profiles/me/privacy'));

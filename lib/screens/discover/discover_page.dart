@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/person.dart';
 import '../../services/warom_api.dart';
 import '../../theme.dart';
+import '../../widgets/common.dart';
 import '../../widgets/person_widgets.dart';
 import '../profile/person_profile_page.dart';
 
@@ -126,14 +127,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
                           try {
                             await WaromApi.instance.swipe(p.id, 'like');
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Liked ${p.displayName}')),
-                              );
+                              showSuccessSnack(context, 'Liked ${p.displayName}');
                             }
                           } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-                            }
+                            if (context.mounted) showApiError(context, e);
                           }
                         },
                         icon: const Icon(Icons.favorite_border_rounded, color: MtaaniColors.coralDeep),

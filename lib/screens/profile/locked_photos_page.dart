@@ -39,9 +39,7 @@ class _LockedPhotosPageState extends State<LockedPhotosPage> {
     final url = _url.text.trim();
     final price = int.tryParse(_price.text.trim()) ?? 0;
     if (url.isEmpty || price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Need a media URL and coin price')),
-      );
+      showWarnSnack(context, 'Need a media URL and coin price');
       return;
     }
     setState(() => _saving = true);
@@ -54,7 +52,7 @@ class _LockedPhotosPageState extends State<LockedPhotosPage> {
       _url.clear();
       _caption.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Locked photo added')));
+        showSuccessSnack(context, 'Locked photo added');
         _reload();
       }
     } catch (e) {

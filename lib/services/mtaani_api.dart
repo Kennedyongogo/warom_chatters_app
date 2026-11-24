@@ -8,6 +8,7 @@ import '../models/account.dart';
 import '../models/profile.dart';
 import '../models/social.dart';
 import 'seed_data.dart';
+import 'warom_api.dart';
 import 'warom_auth.dart';
 
 class _PendingCode {
@@ -87,7 +88,8 @@ class MtaaniApi extends ChangeNotifier {
     _seq = 0;
     _sessionUserId = null;
     _simulateNetworkFailure = false;
-    WaromAuth.instance.clear();
+    // Do NOT clear WaromAuth here — wiping the JWT mid-onboarding caused
+    // "Session expired" when users added photos after create-account.
     _seedDemoMember();
     _discoveryVersion++;
     notifyListeners();
@@ -128,15 +130,19 @@ class MtaaniApi extends ChangeNotifier {
   }
 
   /// Bridges a WAROM API session into the local in-app session/onboarding flow.
+  ///
+  /// [skipOnboarding] is for returning logins — never send them back through Terms.
   AuthOutcome adoptRemoteUser({
     required Map<String, dynamic> user,
     required AuthProvider provider,
     required bool isNew,
+    bool skipOnboarding = false,
   }) {
     final id = '${user['id']}';
     final username = '${user['username'] ?? ''}'.trim();
     final email = user['email'] as String?;
-    final completed = user['onboarding_completed'] == true;
+    // Must come from the API. Local-only "done" was why login restarted onboarding.
+    final completed = skipOnboarding || _isTruthy(user['onboarding_completed']);
     final dobRaw = user['date_of_birth'] as String?;
     final genderRaw = '${user['gender'] ?? ''}'.toLowerCase();
     final hobbies = (user['hobbies'] is List)
@@ -313,6 +319,9 @@ class MtaaniApi extends ChangeNotifier {
       notifyListeners();
       throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
     }
+    final dob =
+        '${birthDate.year.toString().padLeft(4, '0')}-${birthDate.month.toString().padLeft(2, '0')}-${birthDate.day.toString().padLeft(2, '0')}';
+    await _syncProfile({'date_of_birth': dob}, required: false);
     _advance(account, OnboardingStep.basics);
   }
 
@@ -325,6 +334,10 @@ class MtaaniApi extends ChangeNotifier {
       ..name = clean
       ..gender = gender
       ..showMe = showMe;
+    await _syncProfile({
+      'username': clean,
+      'gender': gender.name,
+    }, required: false);
     _advance(account, OnboardingStep.photos);
   }
 
@@ -349,17 +362,39 @@ class MtaaniApi extends ChangeNotifier {
     await _roundTrip();
     final account = _requireOnboarding(OnboardingStep.about);
     _validateAbout(bio, interests);
+    // Location step removed from registration — default to US for chatter targeting.
+    const defaultArea = Area('United States', 39.8283, -98.5795);
     _profiles[account.id]!
       ..bio = bio.trim()
       ..interests = [...interests]
-      ..work = (work?.trim().isEmpty ?? true) ? null : work!.trim();
-    _advance(account, OnboardingStep.location);
+      ..work = (work?.trim().isEmpty ?? true) ? null : work!.trim()
+      ..area = defaultArea;
+    await _syncProfile({
+      'bio': bio.trim(),
+      'hobbies': interests,
+      'city': 'United States',
+      'country': 'United States',
+    }, required: false);
+    _advance(account, OnboardingStep.activate);
   }
 
   Future<void> saveLocation(Area area, {required bool fromDevice}) async {
     await _roundTrip();
-    final account = _requireOnboarding(OnboardingStep.location)..locationFromDevice = fromDevice;
+    // Location UI removed; kept so older mid-onboarding sessions can still finish.
+    final account = this.account ?? (throw const ApiException('Please log in again.'));
+    if (account.status == AccountStatus.ineligible) {
+      throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
+    }
+    if (account.step.isBefore(OnboardingStep.location)) {
+      throw const ApiException('Please complete the previous step first.');
+    }
+    account.locationFromDevice = fromDevice;
     _profiles[account.id]!.area = area;
+    final parts = area.name.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    await _syncProfile({
+      'city': parts.isNotEmpty ? parts.first : area.name,
+      if (parts.length > 1) 'country': parts.sublist(1).join(', '),
+    }, required: false);
     _advance(account, OnboardingStep.activate);
   }
 
@@ -368,13 +403,44 @@ class MtaaniApi extends ChangeNotifier {
     await _roundTrip();
     final account = _requireOnboarding(OnboardingStep.activate);
     final profile = _profiles[account.id]!;
-    if (!account.emailVerified && account.provider == AuthProvider.email) {
+    // WAROM email accounts are already authenticated; don't require the old OTP step.
+    if (!WaromAuth.instance.isSignedIn &&
+        !account.emailVerified &&
+        account.provider == AuthProvider.email) {
       throw const ApiException('Verify your email first.');
     }
     if (account.termsVersion != termsVersion) throw const ApiException('Please accept the latest terms.');
     if (profile.age < 18) throw const ApiException('Warom is only for adults aged 18 and over.', code: ApiException.ineligible);
     if (profile.name.isEmpty || profile.photos.isEmpty) throw const ApiException('Your profile is missing details.');
     _validateAbout(profile.bio, profile.interests);
+
+    if (!WaromAuth.instance.isSignedIn) {
+      throw const ApiException('Session expired. Please log in again.');
+    }
+
+    // 1) Mark complete first — this is what login checks. Keep it tiny so it can't fail on photos.
+    await _syncProfile({'onboarding_completed': true}, required: true);
+
+    // 2) Best-effort profile payload (skip local file paths — those are not server URLs).
+    final dob = profile.birthDate;
+    final dobStr =
+        '${dob.year.toString().padLeft(4, '0')}-${dob.month.toString().padLeft(2, '0')}-${dob.day.toString().padLeft(2, '0')}';
+    final parts = profile.area.name.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final remotePhotos =
+        profile.photos.where((p) => p.startsWith('http://') || p.startsWith('https://')).toList();
+    await _syncProfile({
+      'username': profile.name,
+      'date_of_birth': dobStr,
+      'gender': profile.gender.name,
+      'bio': profile.bio,
+      'hobbies': profile.interests,
+      'city': parts.isNotEmpty ? parts.first : profile.area.name,
+      if (parts.length > 1) 'country': parts.sublist(1).join(', '),
+      if (remotePhotos.isNotEmpty) 'photos': remotePhotos,
+    }, required: false);
+
+    await WaromAuth.instance.mergeUser({'onboarding_completed': true});
+
     profile.discoverable = true;
     account
       ..step = OnboardingStep.done
@@ -382,6 +448,34 @@ class MtaaniApi extends ChangeNotifier {
     _seedIncomingLikes(profile);
     _discoveryVersion++;
     notifyListeners();
+  }
+
+  static bool _isTruthy(dynamic value) =>
+      value == true || value == 1 || value == '1' || value == 'true';
+
+  Future<Map<String, dynamic>> _syncProfile(
+    Map<String, dynamic> patch, {
+    bool required = true,
+  }) async {
+    // Prefer live memory; only fill from disk if needed. Never clear a good session.
+    if (!WaromAuth.instance.isSignedIn) {
+      await WaromAuth.instance.restore();
+    }
+    if (!WaromAuth.instance.isSignedIn) {
+      if (required) {
+        throw const ApiException('Could not save progress. Go back and log in again.');
+      }
+      return patch;
+    }
+    try {
+      final remote = await WaromApi.instance.updateMe(patch);
+      await WaromAuth.instance.mergeUser({...remote, ...patch});
+      return remote;
+    } catch (e) {
+      if (!required) return patch;
+      if (e is ApiException) rethrow;
+      throw ApiException('$e');
+    }
   }
 
   /// Rejects calls from ineligible accounts and calls that try to skip ahead of [step].

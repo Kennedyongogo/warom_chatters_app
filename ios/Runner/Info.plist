@@ -51,8 +51,10 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to record site visit coordinates.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>The camera is used to scan permit QR codes and take site photos.</string>
+	<string>Warom needs camera access for profile photos and video calls.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Warom needs microphone access for voice and video calls.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photos are used to read a permit QR code from your gallery and attach site pictures.</string>
+	<string>Warom needs photo library access to upload profile pictures.</string>
 </dict>
 </plist>

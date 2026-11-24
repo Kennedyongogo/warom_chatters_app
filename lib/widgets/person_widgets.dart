@@ -297,11 +297,6 @@ class EmptyLike extends StatelessWidget {
               const SizedBox(height: 22),
               FilledButton(
                 onPressed: onAction,
-                style: FilledButton.styleFrom(
-                  backgroundColor: MtaaniColors.coralDeep,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                ),
                 child: Text(actionLabel!),
               ),
             ],

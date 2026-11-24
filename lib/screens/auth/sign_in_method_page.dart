@@ -58,7 +58,8 @@ class _SignInMethodPageState extends State<SignInMethodPage> {
       MtaaniApi.instance.adoptRemoteUser(
         user: session.user,
         provider: provider,
-        isNew: isNew || !session.onboardingCompleted,
+        isNew: isNew,
+        skipOnboarding: !isNew,
       );
       if (!mounted) return;
       enterApp(context);
@@ -298,42 +299,42 @@ class _AuthMethodButton extends StatelessWidget {
       opacity: onTap == null && !loading ? 0.55 : 1,
       child: Material(
         color: background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            height: 58,
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: borderColor, width: 1.3),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor, width: 1.1),
             ),
             child: loading
                 ? Center(
                     child: SizedBox.square(
-                      dimension: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: foreground),
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.2, color: foreground),
                     ),
                   )
                 : Row(
                     children: [
-                      SizedBox(width: 28, child: Center(child: icon)),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 24, child: Center(child: icon)),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           label,
                           style: TextStyle(
                             color: foreground,
-                            fontSize: 16.5,
+                            fontSize: 14.5,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: -0.2,
+                            letterSpacing: -0.15,
                           ),
                         ),
                       ),
                       Icon(
                         Icons.arrow_forward_ios_rounded,
-                        size: 14,
+                        size: 12,
                         color: foreground.withValues(alpha: 0.35),
                       ),
                     ],

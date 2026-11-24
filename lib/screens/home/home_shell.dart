@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../services/warom_api.dart';
+import '../../services/warom_realtime.dart';
 import '../../theme.dart';
 import '../../widgets/common.dart';
 import '../calls/calls_page.dart';
@@ -30,13 +32,32 @@ class HomeShellState extends State<HomeShell> {
     ProfilePage(),
   ];
 
+  static const _tabs = [
+    (Icons.home_outlined, Icons.home_rounded, 'Home'),
+    (Icons.travel_explore_outlined, Icons.travel_explore_rounded, 'Discover'),
+    (Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Chats'),
+    (Icons.call_outlined, Icons.call_rounded, 'Calls'),
+    (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+  ];
+
   @override
   void initState() {
     super.initState();
     _refreshUnread();
+    WaromRealtime.instance.connect();
   }
 
-  void openTab(int index) => setState(() => _tab = index);
+  @override
+  void dispose() {
+    // Keep socket alive across tabs; disconnect only on logout elsewhere.
+    super.dispose();
+  }
+
+  void openTab(int index) {
+    if (_tab == index) return;
+    HapticFeedback.selectionClick();
+    setState(() => _tab = index);
+  }
 
   Future<void> _refreshUnread() async {
     try {
@@ -76,40 +97,98 @@ class HomeShellState extends State<HomeShell> {
         index: _tab,
         children: _pages,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: openTab,
-        backgroundColor: Colors.white,
-        indicatorColor: MtaaniColors.blush,
-        surfaceTintColor: Colors.transparent,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded, color: MtaaniColors.coralDeep),
-            label: 'Home',
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          border: Border(top: BorderSide(color: MtaaniColors.line.withValues(alpha: 0.95))),
+          boxShadow: [
+            BoxShadow(
+              color: MtaaniColors.ink.withValues(alpha: 0.07),
+              blurRadius: 18,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+            child: Row(
+              children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  Expanded(
+                    child: _NavItem(
+                      icon: _tabs[i].$1,
+                      selectedIcon: _tabs[i].$2,
+                      label: _tabs[i].$3,
+                      selected: _tab == i,
+                      onTap: () => openTab(i),
+                    ),
+                  ),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.travel_explore_outlined),
-            selectedIcon: Icon(Icons.travel_explore_rounded, color: MtaaniColors.coralDeep),
-            label: 'Discover',
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _NavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        splashColor: MtaaniColors.blush,
+        highlightColor: MtaaniColors.blush.withValues(alpha: 0.5),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: selected ? MtaaniColors.blush : Colors.transparent,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded, color: MtaaniColors.coralDeep),
-            label: 'Chats',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? selectedIcon : icon,
+                size: 22,
+                color: selected ? MtaaniColors.coralDeep : MtaaniColors.muted,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? MtaaniColors.coralDeep : MtaaniColors.muted,
+                ),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.call_outlined),
-            selectedIcon: Icon(Icons.call_rounded, color: MtaaniColors.coralDeep),
-            label: 'Calls',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded, color: MtaaniColors.coralDeep),
-            label: 'Profile',
-          ),
-        ],
+        ),
       ),
     );
   }

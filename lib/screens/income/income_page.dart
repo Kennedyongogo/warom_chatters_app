@@ -45,7 +45,7 @@ class _IncomePageState extends State<IncomePage> {
   Future<void> _withdraw() async {
     final coins = int.tryParse(_amount.text.trim());
     if (coins == null || coins <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid amount')));
+      showWarnSnack(context, 'Enter a valid amount');
       return;
     }
     try {
@@ -54,7 +54,7 @@ class _IncomePageState extends State<IncomePage> {
         payoutMethod: _method.text.trim().isEmpty ? 'mpesa' : _method.text.trim(),
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Withdrawal requested')));
+        showSuccessSnack(context, 'Withdrawal requested');
         _amount.clear();
         _reload();
       }
@@ -152,7 +152,7 @@ class _IncomePageState extends State<IncomePage> {
                         decoration: const InputDecoration(hintText: 'Payout method'),
                       ),
                       const SizedBox(height: 12),
-                      PillButton.primary(onTap: _withdraw, height: 48, child: const Text('Request withdrawal')),
+                      PillButton.primary(onTap: _withdraw, child: const Text('Request withdrawal')),
                     ],
                   ),
                 ),

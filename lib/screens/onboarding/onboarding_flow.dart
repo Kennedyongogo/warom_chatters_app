@@ -17,7 +17,8 @@ Widget pageForStep(OnboardingStep step) => switch (step) {
       OnboardingStep.basics => const BasicsStepPage(),
       OnboardingStep.photos => const PhotosStepPage(),
       OnboardingStep.about => const AboutStepPage(),
-      OnboardingStep.location => const LocationStepPage(),
+      // Location picker removed — US/UK/AU targeting doesn't need Nairobi area choice.
+      OnboardingStep.location => const ActivationPage(),
       OnboardingStep.activate => const ActivationPage(),
       OnboardingStep.done => const HomeShell(),
     };
@@ -96,7 +97,9 @@ class OnboardingScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = (step.index + 1) / (OnboardingStep.activate.index + 1);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(_phase.toUpperCase(),
             style: const TextStyle(fontSize: 12.5, letterSpacing: 1.2, fontWeight: FontWeight.w800, color: MtaaniColors.coralDeep)),
@@ -122,31 +125,31 @@ class OnboardingScaffold extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(24, 22, 24, 24 + bottomInset),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
-                children: [
-                  Text(title,
-                      style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: MtaaniColors.ink, letterSpacing: -0.4)),
-                  const SizedBox(height: 8),
-                  Text(subtitle, style: const TextStyle(fontSize: 15, color: MtaaniColors.muted, height: 1.4)),
-                  const SizedBox(height: 26),
-                  ...children,
-                ],
-              ),
+            Text(title,
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: MtaaniColors.ink, letterSpacing: -0.4)),
+            const SizedBox(height: 8),
+            Text(subtitle, style: const TextStyle(fontSize: 15, color: MtaaniColors.muted, height: 1.4)),
+            const SizedBox(height: 26),
+            ...children,
+            const SizedBox(height: 28),
+            PillButton.primary(
+              onTap: busy ? null : onPrimary,
+              child: busy
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                    )
+                  : Text(primaryLabel),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              child: PillButton.primary(
-                onTap: busy ? null : onPrimary,
-                child: busy
-                    ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                    : Text(primaryLabel),
-              ),
-            ),
-            if (secondary != null) secondary! else const SizedBox(height: 8),
+            if (secondary != null) ...[
+              const SizedBox(height: 8),
+              secondary!,
+            ] else
+              const SizedBox(height: 8),
           ],
         ),
       ),

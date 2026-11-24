@@ -61,7 +61,7 @@ class _PrivacySettingsPageState extends State<PrivacySettingsPage> {
         },
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Privacy updated')));
+        showSuccessSnack(context, 'Privacy updated');
       }
     } catch (e) {
       if (mounted) showApiError(context, e);

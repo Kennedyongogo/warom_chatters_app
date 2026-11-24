@@ -35,7 +35,7 @@ class _WalletPageState extends State<WalletPage> {
     try {
       await WaromApi.instance.buyCoins(packageId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coins added')));
+        showSuccessSnack(context, 'Coins added to your wallet');
         _reload();
       }
     } catch (e) {
