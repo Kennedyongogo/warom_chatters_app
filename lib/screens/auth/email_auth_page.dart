@@ -20,7 +20,8 @@ class EmailAuthPage extends StatefulWidget {
   State<EmailAuthPage> createState() => _EmailAuthPageState();
 }
 
-class _EmailAuthPageState extends State<EmailAuthPage> {
+class _EmailAuthPageState extends State<EmailAuthPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -30,11 +31,26 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
   bool _obscure = true;
   bool _obscureConfirm = true;
   bool _busy = false;
+  late final AnimationController _intro;
+  late final Animation<double> _fade;
+  late final Animation<Offset> _slide;
 
   bool get _creating => widget.mode == AuthMode.create;
 
   @override
+  void initState() {
+    super.initState();
+    _intro = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
+    _fade = CurvedAnimation(parent: _intro, curve: Curves.easeOut);
+    _slide = Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(
+      CurvedAnimation(parent: _intro, curve: Curves.easeOutCubic),
+    );
+    _intro.forward();
+  }
+
+  @override
   void dispose() {
+    _intro.dispose();
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
@@ -124,7 +140,7 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
       prefixIcon: prefix,
       suffixIcon: suffix,
       filled: true,
-      fillColor: Colors.white,
+      fillColor: const Color(0xFFFFFCFB),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -143,209 +159,435 @@ class _EmailAuthPageState extends State<EmailAuthPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottom = MediaQuery.viewPaddingOf(context).bottom;
+
     return Scaffold(
       backgroundColor: MtaaniColors.canvas,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            children: [
-              Center(
-                child: Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    border: Border.all(color: MtaaniColors.line),
-                    boxShadow: [
-                      BoxShadow(
-                        color: MtaaniColors.coral.withValues(alpha: 0.12),
-                        blurRadius: 22,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: const Center(child: HeartMark(size: 36)),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                _creating ? 'Create your account' : 'Welcome back',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  color: MtaaniColors.ink,
-                  letterSpacing: -0.6,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _creating
-                    ? 'Enter your details to get started on WAROM.'
-                    : 'Log in with the email you used to sign up.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15.5, color: MtaaniColors.muted, height: 1.45),
-              ),
-              const SizedBox(height: 28),
-              if (_creating) ...[
-                TextFormField(
-                  controller: _username,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.username],
-                  decoration: _fieldDecoration(
-                    label: 'Username',
-                    hint: 'How you appear on WAROM',
-                    prefix: const Icon(Icons.alternate_email_rounded),
-                  ),
-                  validator: (value) {
-                    final v = value?.trim() ?? '';
-                    if (v.length < 3) return 'Username must be at least 3 characters';
-                    if (v.length > 24) return 'Keep username under 24 characters';
-                    if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(v)) {
-                      return 'Use letters, numbers, dots or underscores';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-              ],
-              TextFormField(
-                controller: _email,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.email],
-                decoration: _fieldDecoration(
-                  label: 'Email',
-                  hint: 'you@email.com',
-                  prefix: const Icon(Icons.mail_outline_rounded),
-                ),
-                validator: (value) {
-                  final v = value?.trim() ?? '';
-                  if (!EmailValidator.validate(v)) return 'Enter a valid email address';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                controller: _password,
-                obscureText: _obscure,
-                textInputAction: _creating ? TextInputAction.next : TextInputAction.done,
-                autofillHints: [if (_creating) AutofillHints.newPassword else AutofillHints.password],
-                onFieldSubmitted: (_) {
-                  if (!_creating) _submit();
-                },
-                decoration: _fieldDecoration(
-                  label: 'Password',
-                  hint: '••••••••',
-                  prefix: const Icon(Icons.lock_outline_rounded),
-                  suffix: IconButton(
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                    icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                  ),
-                ),
-                validator: (value) {
-                  final v = value ?? '';
-                  if (v.length < 6) return 'Password must be at least 6 characters';
-                  return null;
-                },
-              ),
-              if (!_creating) ...[
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _EmailAtmosphere()),
+          SafeArea(
+            child: Column(
+              children: [
                 Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _busy ? null : _forgotPassword,
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      'Forgot password?',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: MtaaniColors.coralDeep,
-                        fontSize: 13.5,
-                      ),
-                    ),
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => Navigator.maybePop(context),
+                    icon: const Icon(Icons.arrow_back_rounded, color: MtaaniColors.ink),
                   ),
                 ),
-              ],
-              if (_creating) ...[
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _confirm,
-                  obscureText: _obscureConfirm,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _submit(),
-                  decoration: _fieldDecoration(
-                    label: 'Confirm password',
-                    hint: '••••••••',
-                    prefix: const Icon(Icons.lock_person_outlined),
-                    suffix: IconButton(
-                      onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                      icon: Icon(
-                        _obscureConfirm ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      ),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value != _password.text) return 'Passwords do not match';
-                    return null;
-                  },
-                ),
-              ],
-              const SizedBox(height: 24),
-              PillButton.primary(
-                onTap: _busy ? null : _submit,
-                child: _busy
-                    ? const SizedBox.square(
-                        dimension: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
-                      )
-                    : Text(_creating ? 'Create account' : 'Log in'),
-              ),
-              const SizedBox(height: 14),
-              TextButton(
-                onPressed: _busy
-                    ? null
-                    : () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => EmailAuthPage(
-                              mode: _creating ? AuthMode.logIn : AuthMode.create,
+                Expanded(
+                  child: FadeTransition(
+                    opacity: _fade,
+                    child: SlideTransition(
+                      position: _slide,
+                      child: Form(
+                        key: _formKey,
+                        child: ListView(
+                          padding: EdgeInsets.fromLTRB(24, 4, 24, 24 + bottom),
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                gradient: MtaaniColors.brandGradient,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: MtaaniColors.coralDeep.withValues(alpha: 0.28),
+                                    blurRadius: 18,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                _creating ? Icons.person_add_alt_1_rounded : Icons.lock_open_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                child: Text.rich(
-                  TextSpan(
-                    style: const TextStyle(fontSize: 14.5, color: MtaaniColors.muted),
-                    children: [
-                      TextSpan(text: _creating ? 'Already have an account? ' : 'New here? '),
-                      TextSpan(
-                        text: _creating ? 'Log in' : 'Create an account',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: MtaaniColors.coralDeep,
+                            const SizedBox(height: 18),
+                            Text(
+                              _creating ? 'Create your chatter\naccount' : 'Welcome back',
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
+                                color: MtaaniColors.ink,
+                                letterSpacing: -1.0,
+                                height: 1.08,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _creating
+                                  ? 'Choose a username, add your email, and set a password. You can finish your profile next.'
+                                  : 'Sign in with your email to jump back into chats, gifts, and earnings.',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: MtaaniColors.muted,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            if (_creating)
+                              const _BenefitStrip(
+                                items: [
+                                  (Icons.chat_bubble_outline_rounded, 'Chat'),
+                                  (Icons.card_giftcard_rounded, 'Gifts'),
+                                  (Icons.payments_outlined, 'Earn'),
+                                ],
+                              )
+                            else
+                              const _BenefitStrip(
+                                items: [
+                                  (Icons.forum_outlined, 'Messages'),
+                                  (Icons.favorite_border_rounded, 'Gifts'),
+                                  (Icons.account_balance_wallet_outlined, 'Payouts'),
+                                ],
+                              ),
+                            const SizedBox(height: 22),
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.92),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(color: MtaaniColors.line),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: MtaaniColors.ink.withValues(alpha: 0.04),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    _creating ? 'Account details' : 'Sign in',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.6,
+                                      color: MtaaniColors.coralDeep,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  if (_creating) ...[
+                                    TextFormField(
+                                      controller: _username,
+                                      textInputAction: TextInputAction.next,
+                                      autofillHints: const [AutofillHints.username],
+                                      decoration: _fieldDecoration(
+                                        label: 'Username',
+                                        hint: 'How you appear on WAROM',
+                                        prefix: const Icon(Icons.alternate_email_rounded),
+                                      ),
+                                      validator: (value) {
+                                        final v = value?.trim() ?? '';
+                                        if (v.length < 3) {
+                                          return 'Username must be at least 3 characters';
+                                        }
+                                        if (v.length > 24) {
+                                          return 'Keep username under 24 characters';
+                                        }
+                                        if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(v)) {
+                                          return 'Use letters, numbers, dots or underscores';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                    const SizedBox(height: 14),
+                                  ],
+                                  TextFormField(
+                                    controller: _email,
+                                    keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
+                                    autofillHints: const [AutofillHints.email],
+                                    decoration: _fieldDecoration(
+                                      label: 'Email',
+                                      hint: 'you@email.com',
+                                      prefix: const Icon(Icons.mail_outline_rounded),
+                                    ),
+                                    validator: (value) {
+                                      final v = value?.trim() ?? '';
+                                      if (!EmailValidator.validate(v)) {
+                                        return 'Enter a valid email address';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextFormField(
+                                    controller: _password,
+                                    obscureText: _obscure,
+                                    textInputAction:
+                                        _creating ? TextInputAction.next : TextInputAction.done,
+                                    autofillHints: [
+                                      if (_creating)
+                                        AutofillHints.newPassword
+                                      else
+                                        AutofillHints.password,
+                                    ],
+                                    onFieldSubmitted: (_) {
+                                      if (!_creating) _submit();
+                                    },
+                                    decoration: _fieldDecoration(
+                                      label: 'Password',
+                                      hint: '••••••••',
+                                      prefix: const Icon(Icons.lock_outline_rounded),
+                                      suffix: IconButton(
+                                        onPressed: () => setState(() => _obscure = !_obscure),
+                                        icon: Icon(
+                                          _obscure
+                                              ? Icons.visibility_outlined
+                                              : Icons.visibility_off_outlined,
+                                        ),
+                                      ),
+                                    ),
+                                    validator: (value) {
+                                      final v = value ?? '';
+                                      if (v.length < 6) {
+                                        return 'Password must be at least 6 characters';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  if (!_creating)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: _busy ? null : _forgotPassword,
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 8,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text(
+                                          'Forgot password?',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            color: MtaaniColors.coralDeep,
+                                            fontSize: 13.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (_creating) ...[
+                                    const SizedBox(height: 14),
+                                    TextFormField(
+                                      controller: _confirm,
+                                      obscureText: _obscureConfirm,
+                                      textInputAction: TextInputAction.done,
+                                      onFieldSubmitted: (_) => _submit(),
+                                      decoration: _fieldDecoration(
+                                        label: 'Confirm password',
+                                        hint: '••••••••',
+                                        prefix: const Icon(Icons.lock_person_outlined),
+                                        suffix: IconButton(
+                                          onPressed: () => setState(
+                                            () => _obscureConfirm = !_obscureConfirm,
+                                          ),
+                                          icon: Icon(
+                                            _obscureConfirm
+                                                ? Icons.visibility_outlined
+                                                : Icons.visibility_off_outlined,
+                                          ),
+                                        ),
+                                      ),
+                                      validator: (value) {
+                                        if (value != _password.text) {
+                                          return 'Passwords do not match';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            PillButton.primary(
+                              height: 52,
+                              onTap: _busy ? null : _submit,
+                              child: _busy
+                                  ? const SizedBox.square(
+                                      dimension: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.4,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          _creating ? 'Create chatter account' : 'Log in',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15.5,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                                      ],
+                                    ),
+                            ),
+                            const SizedBox(height: 14),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () {
+                                      Navigator.pushReplacement(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => EmailAuthPage(
+                                            mode: _creating
+                                                ? AuthMode.logIn
+                                                : AuthMode.create,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                              child: Text.rich(
+                                TextSpan(
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    color: MtaaniColors.muted,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: _creating
+                                          ? 'Already a chatter? '
+                                          : 'New to WAROM? ',
+                                    ),
+                                    TextSpan(
+                                      text: _creating ? 'Log in' : 'Create an account',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: MtaaniColors.coralDeep,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmailAtmosphere extends StatelessWidget {
+  const _EmailAtmosphere();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFFF1EC),
+                MtaaniColors.canvas,
+                Color(0xFFFFF8F5),
+              ],
+            ),
           ),
         ),
-      ),
+        Positioned(
+          top: -90,
+          right: -50,
+          child: Container(
+            width: 220,
+            height: 220,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  MtaaniColors.coral.withValues(alpha: 0.18),
+                  MtaaniColors.coral.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          left: -70,
+          bottom: 120,
+          child: Container(
+            width: 180,
+            height: 180,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  MtaaniColors.gold.withValues(alpha: 0.14),
+                  MtaaniColors.gold.withValues(alpha: 0),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BenefitStrip extends StatelessWidget {
+  final List<(IconData, String)> items;
+
+  const _BenefitStrip({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: MtaaniColors.line),
+              ),
+              child: Column(
+                children: [
+                  Icon(items[i].$1, size: 18, color: MtaaniColors.coralDeep),
+                  const SizedBox(height: 6),
+                  Text(
+                    items[i].$2,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: MtaaniColors.ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

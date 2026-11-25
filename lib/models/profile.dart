@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
+import '../config.dart';
+
 enum Gender {
   woman('Woman'),
   man('Man');
@@ -99,6 +101,22 @@ class Profile {
   bool get meetsVisibilityRequirements => photos.isNotEmpty && bio.trim().isNotEmpty && interests.isNotEmpty;
 }
 
-/// Profile photos are either bundled sample assets or files the user picked from their gallery.
-ImageProvider photoProvider(String path) =>
-    path.startsWith('assets/') ? AssetImage(path) as ImageProvider : FileImage(File(path));
+bool isRemotePhotoPath(String path) =>
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('/uploads/') ||
+    path.startsWith('uploads/');
+
+String resolveMediaUrl(String path) {
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith('/')) return '$kWaromApiBase$path';
+  if (path.startsWith('uploads/')) return '$kWaromApiBase/$path';
+  return path;
+}
+
+/// Profile photos: bundled assets, local files, or remote `/uploads` / http URLs.
+ImageProvider photoProvider(String path) {
+  if (path.startsWith('assets/')) return AssetImage(path);
+  if (isRemotePhotoPath(path)) return NetworkImage(resolveMediaUrl(path));
+  return FileImage(File(path));
+}

@@ -46,6 +46,42 @@ class WaromClient {
     );
   }
 
+  /// Multipart upload. Field name must be `file` (API multer expects that).
+  Future<Map<String, dynamic>> uploadFile(
+    String path,
+    String localFilePath, {
+    String fieldName = 'file',
+  }) async {
+    final token = WaromAuth.instance.token;
+    final request = http.MultipartRequest('POST', Uri.parse('$kWaromApiBase$path'));
+    request.headers['Accept'] = 'application/json';
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(await http.MultipartFile.fromPath(fieldName, localFilePath));
+
+    http.StreamedResponse streamed;
+    try {
+      streamed = await request.send().timeout(const Duration(seconds: 60));
+    } catch (_) {
+      throw const ApiException(
+        'Could not reach WAROM. Check that the API is running and WAROM_API_BASE is correct.',
+      );
+    }
+    final response = await http.Response.fromStream(streamed);
+    Map<String, dynamic>? payload;
+    try {
+      payload = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException('Server error (${response.statusCode}).');
+    }
+    if (response.statusCode >= 400 || payload['success'] == false) {
+      throw ApiException(payload['message']?.toString() ?? 'Upload failed.');
+    }
+    final data = payload['data'];
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return <String, dynamic>{};
+  }
+
   Map<String, String> _headers({bool json = false}) {
     final token = WaromAuth.instance.token;
     return {

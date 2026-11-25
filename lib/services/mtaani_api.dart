@@ -187,6 +187,9 @@ class MtaaniApi extends ChangeNotifier {
       ...photos,
       ...covers,
     ];
+    // Preserve order, drop duplicates.
+    final seen = <String>{};
+    imageList.retainWhere((p) => seen.add(p));
 
     _profiles[id] = Profile(
       id: id,
@@ -341,12 +344,15 @@ class MtaaniApi extends ChangeNotifier {
     _advance(account, OnboardingStep.photos);
   }
 
-  /// Stores the picked image in protected storage and returns the stored reference.
+  /// Uploads to WAROM media API and returns a server path (`/uploads/...`).
   Future<String> uploadPhoto(String localPath) async {
-    await _roundTrip();
     _requireMe();
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    return localPath;
+    if (!WaromAuth.instance.isSignedIn) {
+      throw const ApiException('Session expired. Please log in again.');
+    }
+    // Already remote — keep as-is.
+    if (isRemotePhotoPath(localPath)) return localPath;
+    return WaromApi.instance.uploadMedia(localPath, kind: 'profile');
   }
 
   Future<void> savePhotos(List<String> photos) async {
@@ -355,6 +361,13 @@ class MtaaniApi extends ChangeNotifier {
     if (photos.isEmpty) throw const ApiException('Add at least one photo.');
     if (photos.length > 6) throw const ApiException('You can add up to 6 photos.');
     _profiles[account.id]!.photos = [...photos];
+    final remote = photos.where(isRemotePhotoPath).toList();
+    if (remote.isNotEmpty) {
+      await _syncProfile({
+        'photos': remote,
+        'profile_picture': remote.first,
+      }, required: false);
+    }
     _advance(account, OnboardingStep.about);
   }
 
@@ -426,8 +439,7 @@ class MtaaniApi extends ChangeNotifier {
     final dobStr =
         '${dob.year.toString().padLeft(4, '0')}-${dob.month.toString().padLeft(2, '0')}-${dob.day.toString().padLeft(2, '0')}';
     final parts = profile.area.name.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-    final remotePhotos =
-        profile.photos.where((p) => p.startsWith('http://') || p.startsWith('https://')).toList();
+    final remotePhotos = profile.photos.where(isRemotePhotoPath).toList();
     await _syncProfile({
       'username': profile.name,
       'date_of_birth': dobStr,
@@ -437,6 +449,7 @@ class MtaaniApi extends ChangeNotifier {
       'city': parts.isNotEmpty ? parts.first : profile.area.name,
       if (parts.length > 1) 'country': parts.sublist(1).join(', '),
       if (remotePhotos.isNotEmpty) 'photos': remotePhotos,
+      if (remotePhotos.isNotEmpty) 'profile_picture': remotePhotos.first,
     }, required: false);
 
     await WaromAuth.instance.mergeUser({'onboarding_completed': true});
@@ -506,6 +519,13 @@ class MtaaniApi extends ChangeNotifier {
     final me = _requireMe();
     edit(me);
     _validateProfile(me);
+    final remotePhotos = me.photos.where(isRemotePhotoPath).toList();
+    await _syncProfile({
+      'bio': me.bio,
+      'hobbies': me.interests,
+      if (remotePhotos.isNotEmpty) 'photos': remotePhotos,
+      if (remotePhotos.isNotEmpty) 'profile_picture': remotePhotos.first,
+    }, required: false);
     _discoveryVersion++;
     notifyListeners();
   }

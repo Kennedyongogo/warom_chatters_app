@@ -1,4 +1,5 @@
 import '../models/person.dart';
+import '../models/social.dart';
 import 'warom_client.dart';
 
 class WaromApi {
@@ -229,6 +230,14 @@ class WaromApi {
   }
 
   Future<void> deleteAccount() => _client.delete('/api/profiles/me');
+
+  /// Upload a local image and return the server URL (`/uploads/...`).
+  Future<String> uploadMedia(String localPath, {String kind = 'profile'}) async {
+    final data = await _client.uploadFile('/api/media/$kind', localPath);
+    final url = '${data['url'] ?? data['absolute_url'] ?? ''}'.trim();
+    if (url.isEmpty) throw ApiException('Upload succeeded but no URL was returned.');
+    return url;
+  }
 
   Future<List<dynamic>> verifications() async {
     final data = await _client.get('/api/verification/me');

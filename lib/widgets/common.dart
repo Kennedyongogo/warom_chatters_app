@@ -167,7 +167,23 @@ class Avatar extends StatelessWidget {
               style: TextStyle(color: MtaaniColors.coralDeep, fontWeight: FontWeight.w800, fontSize: size * 0.4),
             ),
           )
-        : Image(image: photoProvider(profile.photos.first), fit: BoxFit.cover, alignment: Alignment.topCenter);
+        : Image(
+            image: photoProvider(profile.photos.first),
+            fit: BoxFit.cover,
+            alignment: Alignment.topCenter,
+            errorBuilder: (_, __, ___) => Container(
+              color: MtaaniColors.blush,
+              alignment: Alignment.center,
+              child: Text(
+                profile.name.isEmpty ? '?' : profile.name[0],
+                style: TextStyle(
+                  color: MtaaniColors.coralDeep,
+                  fontWeight: FontWeight.w800,
+                  fontSize: size * 0.4,
+                ),
+              ),
+            ),
+          );
     final circle = ClipOval(child: SizedBox.square(dimension: size, child: image));
     if (!ring) return circle;
     return Container(
