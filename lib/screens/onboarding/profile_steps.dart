@@ -84,16 +84,20 @@ class PhotosStepPage extends StatefulWidget {
 class _PhotosStepPageState extends State<PhotosStepPage> {
   late List<String> _photos = [...MtaaniApi.instance.me!.photos];
   bool _busy = false;
+  bool _uploading = false;
 
   @override
   Widget build(BuildContext context) {
+    final canContinue = _photos.isNotEmpty && !_uploading && !_busy;
     return OnboardingScaffold(
       step: OnboardingStep.photos,
       title: 'Add your photos',
-      subtitle: 'Add at least one clear, recent photo of just you. Tap a photo to make it your main one or reorder.',
-      busy: _busy,
-      primaryLabel: 'Continue',
-      onPrimary: _photos.isEmpty
+      subtitle: _uploading
+          ? 'Hang tight — your photo is uploading. Continue unlocks when it’s done.'
+          : 'Add at least one clear, recent photo of just you. Tap a photo to reorder or set it as main.',
+      busy: _busy || _uploading,
+      primaryLabel: _uploading ? 'Uploading…' : 'Continue',
+      onPrimary: !canContinue
           ? null
           : () => submitStep(
                 context,
@@ -106,6 +110,7 @@ class _PhotosStepPageState extends State<PhotosStepPage> {
           photos: _photos,
           upload: MtaaniApi.instance.uploadPhoto,
           onChanged: (p) => setState(() => _photos = p),
+          onUploadingChanged: (v) => setState(() => _uploading = v),
         ),
         const SizedBox(height: 16),
         const Row(

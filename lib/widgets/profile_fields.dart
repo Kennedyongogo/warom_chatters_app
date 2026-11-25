@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -14,6 +16,13 @@ const allInterests = [
 const maxPhotos = 6;
 const maxInterests = 5;
 
+class _PendingUpload {
+  final String localPath;
+  final String id;
+
+  const _PendingUpload({required this.localPath, required this.id});
+}
+
 class PhotoGrid extends StatefulWidget {
   final List<String> photos;
   final ValueChanged<List<String>> onChanged;
@@ -21,34 +30,56 @@ class PhotoGrid extends StatefulWidget {
   /// Sends a picked image to storage and returns the stored reference.
   final Future<String> Function(String localPath) upload;
 
-  const PhotoGrid({super.key, required this.photos, required this.onChanged, required this.upload});
+  /// Called whenever upload activity starts/stops so parents can disable Continue.
+  final ValueChanged<bool>? onUploadingChanged;
+
+  const PhotoGrid({
+    super.key,
+    required this.photos,
+    required this.onChanged,
+    required this.upload,
+    this.onUploadingChanged,
+  });
 
   @override
   State<PhotoGrid> createState() => _PhotoGridState();
 }
 
 class _PhotoGridState extends State<PhotoGrid> {
-  int _uploading = 0;
+  final List<_PendingUpload> _pending = [];
 
   List<String> get photos => widget.photos;
+  bool get _isUploading => _pending.isNotEmpty;
+  int get _slotCount => (photos.length + _pending.length).clamp(0, maxPhotos);
+
+  void _notifyUploading() => widget.onUploadingChanged?.call(_isUploading);
 
   Future<void> _upload(String localPath) async {
-    setState(() => _uploading++);
+    if (photos.length + _pending.length >= maxPhotos) return;
+
+    final pending = _PendingUpload(
+      localPath: localPath,
+      id: '${DateTime.now().microsecondsSinceEpoch}',
+    );
+    setState(() => _pending.add(pending));
+    _notifyUploading();
+
     try {
       final stored = await widget.upload(localPath);
-      if (mounted) {
-        widget.onChanged([...widget.photos, stored]);
-        showSuccessSnack(context, 'Photo added');
-      }
+      if (!mounted) return;
+      setState(() => _pending.removeWhere((p) => p.id == pending.id));
+      widget.onChanged([...widget.photos, stored]);
     } catch (e) {
       if (!mounted) return;
+      setState(() => _pending.removeWhere((p) => p.id == pending.id));
       showApiError(context, e, retry: () => _upload(localPath));
     } finally {
-      if (mounted) setState(() => _uploading--);
+      if (mounted) _notifyUploading();
     }
   }
 
   Future<void> _manage(int index) async {
+    if (_isUploading) return;
     final choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -100,100 +131,266 @@ class _PhotoGridState extends State<PhotoGrid> {
     widget.onChanged(next);
   }
 
-  Future<void> _add(BuildContext context) async {
+  Future<void> _pick(ImageSource source) async {
     final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      imageQuality: 85,
-      // Prefer a re-encoded JPEG so HEIC / odd gallery MIME types don't fail upload.
+      source: source,
+      // Smaller encode = faster upload on mobile networks.
+      maxWidth: 1080,
+      maxHeight: 1080,
+      imageQuality: 72,
       requestFullMetadata: false,
     );
     if (file != null) await _upload(file.path);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: maxPhotos,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 0.75,
+  Future<void> _add(BuildContext context) async {
+    if (_isUploading || photos.length >= maxPhotos) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      itemBuilder: (context, i) {
-        if (i < photos.length) {
-          return Stack(
-            fit: StackFit.expand,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () => _manage(i),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image(image: photoProvider(photos[i]), fit: BoxFit.cover),
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: MtaaniColors.line,
+                  borderRadius: BorderRadius.circular(100),
                 ),
               ),
-              if (i == 0)
-                Positioned(
-                  left: 6,
-                  bottom: 6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(100)),
-                    child: const Text('Main', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                  ),
+              const Text(
+                'Add a photo',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: MtaaniColors.ink),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Clear face photos work best. Upload starts right away.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: MtaaniColors.muted, height: 1.35),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: MtaaniColors.blush,
+                  child: Icon(Icons.photo_library_outlined, color: MtaaniColors.coralDeep),
                 ),
-              Positioned(
-                right: 4,
-                top: 4,
-                child: GestureDetector(
-                  onTap: () => widget.onChanged([...photos]..removeAt(i)),
-                  child: const CircleAvatar(
-                    radius: 13,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.close_rounded, size: 16, color: MtaaniColors.ink),
-                  ),
+                title: const Text('Choose from gallery', style: TextStyle(fontWeight: FontWeight.w700)),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: MtaaniColors.blush,
+                  child: Icon(Icons.photo_camera_outlined, color: MtaaniColors.coralDeep),
                 ),
+                title: const Text('Take a photo', style: TextStyle(fontWeight: FontWeight.w700)),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
               ),
             ],
-          );
-        }
-        if (i < photos.length + _uploading) {
-          return Container(
-            decoration: BoxDecoration(color: MtaaniColors.blush, borderRadius: BorderRadius.circular(16)),
+          ),
+        ),
+      ),
+    );
+    if (source != null) await _pick(source);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_isUploading)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: MtaaniColors.blush,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: MtaaniColors.coral.withValues(alpha: 0.25)),
+            ),
+            child: const Row(
+              children: [
+                SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2, color: MtaaniColors.coralDeep),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Uploading photo… you can keep browsing while this finishes.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: MtaaniColors.coralDeep,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: maxPhotos,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.75,
+          ),
+          itemBuilder: (context, i) {
+            if (i < photos.length) {
+              return _PhotoTile(
+                image: photoProvider(photos[i]),
+                isMain: i == 0,
+                onTap: () => _manage(i),
+                onRemove: () => widget.onChanged([...photos]..removeAt(i)),
+              );
+            }
+
+            final pendingIndex = i - photos.length;
+            if (pendingIndex < _pending.length) {
+              final pending = _pending[pendingIndex];
+              return _PhotoTile(
+                image: FileImage(File(pending.localPath)),
+                uploading: true,
+                isMain: photos.isEmpty && pendingIndex == 0,
+              );
+            }
+
+            final isNext = i == _slotCount;
+            return GestureDetector(
+              onTap: isNext ? () => _add(context) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  color: isNext ? MtaaniColors.blush : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isNext ? MtaaniColors.coral.withValues(alpha: 0.55) : MtaaniColors.line,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_a_photo_outlined,
+                      size: 26,
+                      color: isNext ? MtaaniColors.coralDeep : MtaaniColors.line,
+                    ),
+                    if (isNext) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Add',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: MtaaniColors.coralDeep,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _PhotoTile extends StatelessWidget {
+  final ImageProvider image;
+  final bool isMain;
+  final bool uploading;
+  final VoidCallback? onTap;
+  final VoidCallback? onRemove;
+
+  const _PhotoTile({
+    required this.image,
+    this.isMain = false,
+    this.uploading = false,
+    this.onTap,
+    this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        GestureDetector(
+          onTap: uploading ? null : onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image(
+              image: image,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                color: MtaaniColors.blush,
+                alignment: Alignment.center,
+                child: const Icon(Icons.broken_image_outlined, color: MtaaniColors.coralDeep),
+              ),
+            ),
+          ),
+        ),
+        if (uploading)
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox.square(
                   dimension: 26,
-                  child: CircularProgressIndicator(strokeWidth: 2.6, color: MtaaniColors.coralDeep),
+                  child: CircularProgressIndicator(strokeWidth: 2.6, color: Colors.white),
                 ),
                 SizedBox(height: 8),
-                Text('Uploading', style: TextStyle(fontSize: 12, color: MtaaniColors.coralDeep, fontWeight: FontWeight.w700)),
+                Text(
+                  'Uploading',
+                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                ),
               ],
             ),
-          );
-        }
-        final isNext = i == photos.length + _uploading;
-        return GestureDetector(
-          onTap: isNext ? () => _add(context) : null,
-          child: Container(
-            decoration: BoxDecoration(
-              color: isNext ? MtaaniColors.blush : Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isNext ? MtaaniColors.coral.withValues(alpha: 0.5) : MtaaniColors.line),
-            ),
-            child: Icon(
-              Icons.add_rounded,
-              size: 30,
-              color: isNext ? MtaaniColors.coralDeep : MtaaniColors.line,
+          ),
+        if (isMain && !uploading)
+          Positioned(
+            left: 6,
+            bottom: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(100)),
+              child: const Text(
+                'Main',
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+              ),
             ),
           ),
-        );
-      },
+        if (!uploading && onRemove != null)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: const CircleAvatar(
+                radius: 13,
+                backgroundColor: Colors.white,
+                child: Icon(Icons.close_rounded, size: 16, color: MtaaniColors.ink),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -239,7 +436,13 @@ class ChoiceRow<T> extends StatelessWidget {
   final String Function(T) label;
   final ValueChanged<T> onChanged;
 
-  const ChoiceRow({super.key, required this.options, required this.value, required this.label, required this.onChanged});
+  const ChoiceRow({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.label,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +461,10 @@ class ChoiceRow<T> extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: o == value ? MtaaniColors.blush : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: o == value ? MtaaniColors.coral : MtaaniColors.line, width: o == value ? 1.6 : 1),
+                    border: Border.all(
+                      color: o == value ? MtaaniColors.coral : MtaaniColors.line,
+                      width: o == value ? 1.6 : 1,
+                    ),
                   ),
                   child: Text(
                     label(o),
@@ -298,4 +504,3 @@ class FieldLabel extends StatelessWidget {
     );
   }
 }
-
