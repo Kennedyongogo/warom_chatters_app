@@ -103,8 +103,11 @@ class _PhotoGridState extends State<PhotoGrid> {
   Future<void> _add(BuildContext context) async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      maxWidth: 1200,
+      maxWidth: 1600,
+      maxHeight: 1600,
       imageQuality: 85,
+      // Prefer a re-encoded JPEG so HEIC / odd gallery MIME types don't fail upload.
+      requestFullMetadata: false,
     );
     if (file != null) await _upload(file.path);
   }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../config.dart';
 import '../models/social.dart';
@@ -56,7 +57,35 @@ class WaromClient {
     final request = http.MultipartRequest('POST', Uri.parse('$kWaromApiBase$path'));
     request.headers['Accept'] = 'application/json';
     if (token != null) request.headers['Authorization'] = 'Bearer $token';
-    request.files.add(await http.MultipartFile.fromPath(fieldName, localFilePath));
+
+    // Force a clear name/MIME so Samsung/Android gallery picks aren't rejected.
+    final dot = localFilePath.lastIndexOf('.');
+    final ext = dot >= 0 ? localFilePath.substring(dot).toLowerCase() : '';
+    final safeExt = (ext == '.png' ||
+            ext == '.jpg' ||
+            ext == '.jpeg' ||
+            ext == '.webp' ||
+            ext == '.gif' ||
+            ext == '.heic' ||
+            ext == '.heif')
+        ? ext
+        : '.jpg';
+    final safeName = 'upload_${DateTime.now().millisecondsSinceEpoch}$safeExt';
+    final mime = switch (safeExt) {
+      '.png' => MediaType('image', 'png'),
+      '.webp' => MediaType('image', 'webp'),
+      '.gif' => MediaType('image', 'gif'),
+      '.heic' || '.heif' => MediaType('image', 'heic'),
+      _ => MediaType('image', 'jpeg'),
+    };
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        fieldName,
+        localFilePath,
+        filename: safeName,
+        contentType: mime,
+      ),
+    );
 
     http.StreamedResponse streamed;
     try {
